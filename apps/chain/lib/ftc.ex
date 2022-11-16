@@ -1,0 +1,2 @@
+defmodule FTC do
+end
