@@ -8,6 +8,7 @@ defmodule Server.NewInstance do
         prev_hop: nil,
         next_hop: nil,
         num_of_replications: nil,
+        replica_storage: nil,
         is_first: nil,
         is_last: nil
     )
@@ -17,6 +18,7 @@ defmodule Server.NewInstance do
         atom(),
         atom(),
         non_neg_integer(),
+        list(any()),
         boolean(),
         boolean()
     ) :: 
@@ -25,6 +27,7 @@ defmodule Server.NewInstance do
             prev_hop: atom(),
             next_hop: atom(),
             num_of_replications: non_neg_integer(),
+            replica_storage: list(any()),
             is_first: boolean(),
             is_last: boolean()
         }
@@ -33,6 +36,7 @@ defmodule Server.NewInstance do
         prev_hop,
         next_hop,
         num_of_replications,
+        replica_storage,
         is_first,
         is_last
     ) do
@@ -41,6 +45,7 @@ defmodule Server.NewInstance do
             prev_hop: prev_hop,
             next_hop: next_hop,
             num_of_replications: num_of_replications,
+            replica_storage: replica_storage,
             is_first: is_first,
             is_last: is_last
         }

@@ -104,15 +104,37 @@ defmodule Server do
                 prev_hop: prev_hop,
                 next_hop: next_hop,
                 num_of_replications: num_of_replications,
+                replica_storage: replica_storage,
                 is_first: is_first,
                 is_last: is_last
              }} ->
+                state = %{state | 
+                            nf_name: nf,
+                            prev_hop: prev_hop,
+                            next_hop: next_hop,
+                            num_of_replications: num_of_replications
+                            replica_storage: replica_storage,
+                        }
+                state = add_forwarder(state, is_first)
+                state = add_buffer(state, is_last)
+                become_nf_node(state)
+            
+            # Messages from clients
 
+            # Messages for testing
+
+            # Default entry
+            _ ->
+                server(state)
         end
     end
-
-    @spec make_nf_node(%Server{}) :: %Server{in_use: true}
     
     @spec become_nf_node(%Server{}) :: no_return()
+    def become_nf_node(state) do
+        state = %{state | in_use: true}
+        case state.nf_name do
+        # TODO: add specific NFs to this switch
+        end
+    end
 
 end
