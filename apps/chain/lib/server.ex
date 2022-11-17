@@ -110,4 +110,9 @@ defmodule Server do
 
         end
     end
+
+    @spec make_nf_node(%Server{}) :: %Server{in_use: true}
+    
+    @spec become_nf_node(%Server{}) :: no_return()
+
 end
