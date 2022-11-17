@@ -40,14 +40,14 @@ defmodule Server do
     @doc """
     Create a new server, and can turn to different nf later
     """
-    @spec new_configuration(atom(), non_neg_integer()) :: %Server{}
-    def new_configuration(orchestrator, heartbeat_timeout) do
+    @spec new_configuration(atom(), non_neg_integer(), non_neg_integer()) :: %Server{}
+    def new_configuration(orchestrator, heartbeat_timeout, nop_timeout) do
         %Server{
             id: whoami(),
             orchestrator: orchestrator,
             in_use: false,
             heartbeat_timeout: heartbeat_timeout,
-            nop_timeout: nil,
+            nop_timeout: nop_timeout,
             nf_name: nil,
             nf_state: nil,
             prev_hop: nil,
@@ -98,6 +98,7 @@ defmodule Server do
     @spec server(%Server{}) :: no_return()
     def server(state) do
         receive do
+            # Control message from orchestrator
             {^state.orchestrator,
              %Server.NewInstance{
                 nf_name: nf,
@@ -105,15 +106,18 @@ defmodule Server do
                 next_hop: next_hop,
                 num_of_replications: num_of_replications,
                 replica_storage: replica_storage,
+                commit_vector: commit_vector,
                 is_first: is_first,
                 is_last: is_last
              }} ->
                 state = %{state | 
                             nf_name: nf,
+                            nf_state: hd(replica_storage),
                             prev_hop: prev_hop,
                             next_hop: next_hop,
-                            num_of_replications: num_of_replications
+                            num_of_replications: num_of_replications,
                             replica_storage: replica_storage,
+                            commit_vector: commit_vector,
                         }
                 state = add_forwarder(state, is_first)
                 state = add_buffer(state, is_last)
@@ -132,13 +136,19 @@ defmodule Server do
     @spec become_nf_node(%Server{}) :: no_return()
     def become_nf_node(state) do
         state = %{state | in_use: true}
-        case state.nf_name do
-        # TODO: add specific NFs to this switch
+        nf_node(state, nil)
+    end
+
+    @spec nf_node(%Server{}, any()) :: no_return()
+    def nf_node(state, extra_state) do
+        receive do
+            # Control message from orchestrator
+            
+            # Messages from clients
+
+            # Messages for testing
+
+            # Default entry
         end
     end
-
-    @spec nf_node(%Server{}) :: no_return()
-    def nf_node(state) do
-    end
-
 end
