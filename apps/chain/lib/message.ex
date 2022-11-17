@@ -12,7 +12,39 @@ defmodule Server.NewInstance do
         is_last: nil
     )
 
-    @spec new() :: %NewInstance{}
+    @spec new(
+        atom(),
+        atom(),
+        atom(),
+        non_neg_integer(),
+        boolean(),
+        boolean()
+    ) :: 
+        %NewInstance{
+            nf_name: atom(),
+            prev_hop: atom(),
+            next_hop: atom(),
+            num_of_replications: non_neg_integer(),
+            is_first: boolean(),
+            is_last: boolean()
+        }
+    def new(
+        nf,
+        prev_hop,
+        next_hop,
+        num_of_replications,
+        is_first,
+        is_last
+    ) do
+        %NewInstance{
+            nf_name: nf,
+            prev_hop: prev_hop,
+            next_hop: next_hop,
+            num_of_replications: num_of_replications,
+            is_first: is_first,
+            is_last: is_last
+        }
+    end
 end
 
 defmodule FTC.Packet do

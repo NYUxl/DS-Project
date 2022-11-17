@@ -29,11 +29,12 @@ defmodule Server do
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
+        commit_vector: nil,
         # Forwarder and Buffer
         is_first: nil,
         is_last: nil,
-        forwarder: nil,
-        buffer: nil
+        forwarder: nil, # list of following piggyback headers
+        buffer: nil # list of waiting packets
     )
 
     @doc """
@@ -53,11 +54,32 @@ defmodule Server do
             next_hop: nil,
             num_of_replications: nil,
             replica_storage: nil,
+            commit_vector: nil,
             is_first: nil,
             is_last: nil,
             forwarder: nil,
             buffer: nil
         }
+    end
+
+    @spec add_forwarder(%Server{}, boolean()) :: %Server{}
+    def add_forwarder(state, is_first) do
+        state = %{state | is_first: is_first}
+        if is_first do
+            %{state | forwarder: []}
+        else
+            state
+        end
+    end
+
+    @spec add_buffer(%Server{}, boolean()) :: %Server{}
+    def add_buffer(state, is_last) do
+        state = %{state | is_last: is_last}
+        if is_last do
+            %{state | buffer: []}
+        else
+            state
+        end
     end
 
     @doc """
@@ -76,7 +98,16 @@ defmodule Server do
     @spec server(%Server{}) :: no_return()
     def server(state) do
         receive do
-            {^state.orchestrator, }
+            {^state.orchestrator,
+             %Server.NewInstance{
+                nf_name: nf,
+                prev_hop: prev_hop,
+                next_hop: next_hop,
+                num_of_replications: num_of_replications,
+                is_first: is_first,
+                is_last: is_last
+             }} ->
+
         end
     end
 end
