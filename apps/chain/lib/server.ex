@@ -137,4 +137,8 @@ defmodule Server do
         end
     end
 
+    @spec nf_node(%Server{}) :: no_return()
+    def nf_node(state) do
+    end
+
 end
