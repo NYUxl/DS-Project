@@ -21,6 +21,7 @@ defmodule Server do
         heartbeat_timeout: nil,
         # Special timeout if this server contains a forwarder
         nop_timeout: nil,
+        nop_timer: nil,
         # State for the own NF
         nf_name: nil,
         nf_state: nil,
@@ -48,6 +49,7 @@ defmodule Server do
             in_use: false,
             heartbeat_timeout: heartbeat_timeout,
             nop_timeout: nop_timeout,
+            nop_timer: nil,
             nf_name: nil,
             nf_state: nil,
             prev_hop: nil,
@@ -60,6 +62,19 @@ defmodule Server do
             forwarder: nil,
             buffer: nil
         }
+    end
+
+    @spec reset_heartbeat_timer(%Server{}) :: no_return()
+    def reset_heartbeat_timer(state) do
+        Emulation.timer(state.heartbeat_timeout, :timer_heartbeat)
+    end
+
+    @spec reset_nop_timer(%Server{}) :: %Server{}
+    def reset_nop_timer(state) do
+        if state.nop_timer != nil do
+            n = Emulation.cancel_timer(state.nop_timer)
+        end
+        %{state | nop_timer: Emulation.timer(state.nop_timeout, :timer_nop)}
     end
 
     @spec add_forwarder(%Server{}, boolean()) :: %Server{}
@@ -85,14 +100,10 @@ defmodule Server do
     @doc """
     Called when server initialized or when some failure occurs
     """
-    @spec make_server(%Server{}) :: %Server{in_use: false}
-    def make_server(state) do
-        %{state | in_use: false}
-    end
-
     @spec become_server(%Server{}) :: no_return()
     def become_server(state) do 
-        server(make_server(state))
+        state = %{state | in_use: false}
+        server(state)
     end
 
     @spec server(%Server{}) :: no_return()
@@ -136,6 +147,7 @@ defmodule Server do
     @spec become_nf_node(%Server{}) :: no_return()
     def become_nf_node(state) do
         state = %{state | in_use: true}
+        reset_heartbeat_timer(state)
         nf_node(state, nil)
     end
 
