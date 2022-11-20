@@ -42,12 +42,12 @@ defmodule FTC do
     @doc """
     Get the initial state for each NF, used at start-up
     """
-    @spec init_state(atom()) :: any()
+    @spec init_state(atom()) :: map()
     def init_state(nf) do
         case nf do
             :amf ->
                 "AMF state initialized"
-                %{} # key:UEid, value:location, registration_state(bool)
+                %{} # key:UEid, registration_state(bool)
             :ausf ->
                 "AUSF state initialized"
                 %{1: "a"} # key:UEid, value:serving_network_name
@@ -70,7 +70,7 @@ defmodule FTC do
         %{state | live_timer: Emulation.timer(state.live_timeout)}
     end
 
-    @spec reset_extra_state(%FTC{}) :: any()
+    @spec reset_extra_state(%FTC{}) :: map()
     def reset_extra_state(state) do
         Map.new(state.nodes, fn x -> {x, 0} end)
     end
@@ -143,7 +143,7 @@ defmodule FTC do
         orchestrator(state, reset_extra_state())
     end
 
-    @spec orchestrator(%FTC{}, any()) :: no_return()
+    @spec orchestrator(%FTC{}, map()) :: no_return()
     def orchestrator(state, extra_state) do
         receive do
             # heartbeat message from a node
@@ -161,7 +161,7 @@ defmodule FTC do
             # 2. recreate an instance and restore the state
             # 3. continue the process
             :timer ->
-                
+                dead_nodes = Enum.filter(state.nodes, fn x ->)
         end
     end
 end

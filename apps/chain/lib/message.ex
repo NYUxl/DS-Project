@@ -97,30 +97,39 @@ defmodule SomeName do
     )
 end
 
-defmodule FTC.Packet do
+defmodule Server.Message do
     @moduledoc """
-    Packet architecture of the FTC, containing header and content
+    Message architecture of the FTC, containing header and content
     """
     alias __MODULE__
     defstruct(
-        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil}
-        payload: "payload 1500 bytes"
-        piggyback: nil
+        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil},
+        payload: nil # payload 1500 bytes
     )
 
     # TODO: check the correctness of type
-    @spec new(non_neg_integer(), string(), string(), map(), list()) :: %Packet{}
-    def new(p_id, hd, pload, pback) do
-        %Packet{
-            header: hd, # %{pid: p_id, src_ip: src, dst_ip: dst}
+    @spec new(non_neg_integer(), string(), string(), map(), string()) :: %Message{}
+    def new(ue, pid, src, dst, pload) do
+        %Message{
+            header: %{ue: ue, pid: pid, src_ip: src, dst_ip: dst},
             payload: pload, # ue, loc
-            piggyback: pback
         }
     end
     
-    @spec update_piggyback(list()) :: %Packet{}
+    @spec update_piggyback(list()) :: %Message{}
     def update_piggyback(packet, new_piggyback) do
         %{packet | piggyback: new_piggyback}
     end
 
+end
+
+defmodule NF.StateUpdate do
+    @moduledoc """
+    The state update message piggybacked to the transmitted message
+    """
+    alias __MODULE__
+    defstruct(
+        action: nil,
+        item: nil
+    )
 end

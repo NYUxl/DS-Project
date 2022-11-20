@@ -153,11 +153,24 @@ defmodule Server do
         nf_node(state, nil)
     end
 
+    @doc """
+    The NF processes the incoming message and update its own state
+    """
+    @spec nf_update(map(), atom()) :: map()
+    
+    @doc """
+    For loop to update the replica's states
+    """
+    @spec loop_update_replica() :: list(any())
+
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
         receive do
             # Control message from orchestrator
             
+            # Message from previous hop
+            {^prev_hop, {piggyback, message}} -> 
+
             # Messages from clients
 
             # Messages for testing
@@ -167,6 +180,9 @@ defmodule Server do
                 nf_node(state, extra_state)
         end
     end
+
+    send(next_hop, {piggyback, message})
+
 
     # TODO: re-architecture
     @spec nf_amf_node(%Server{}, any()) :: no_return()
