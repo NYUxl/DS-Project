@@ -161,7 +161,59 @@ defmodule FTC do
             # 2. recreate an instance and restore the state
             # 3. continue the process
             :timer ->
-                dead_nodes = Enum.filter(state.nodes, fn x ->)
+                dead_nodes = Enum.filter(state.nodes, fn x -> Map.get(extra_state, x) == 0 end)
+
         end
+    end
+end
+
+defmodule GNB do
+    @moduledoc """
+    gNB for 5G infrastructure. Forward the message to the forwarder to enter
+    the chain
+    """
+    defstruct(
+        id: nil,
+        orchestrator: nil,
+        buffer: nil,
+        current_dealer: nil
+    )
+
+    @spec new_gNB(atom(), atom()) :: %GNB{}
+    def new_gNB(id, orchestrator) do
+        %GNB{
+            id: id,
+            orchestrator: orchestrator,
+            buffer: [],
+            current_dealer: nil
+        }
+    end
+
+    @spec gNB(%GNB{}) :: no_return()
+    def gNB(state) do
+        receive do
+            # new request from UE
+
+            # need to ask for the chain entry
+            {}
+        end
+    end
+end
+
+defmodule UE do
+    @moduledoc """
+    User equipment. Send message to the assigned gNB
+    """
+    defstruct(
+        id: nil,
+        gnb: nil
+    )
+
+    @spec new_client(atom(), atom()) :: %UE{}
+    def new_client(id, gnb) do
+        %UE{
+            id: id,
+            gnb: gnb
+        }
     end
 end
