@@ -9,7 +9,7 @@ defmodule Server.NewInstance do
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
-        commit_vector: nil,
+        rep_group: nil,
         is_first: nil,
         is_last: nil
     )
@@ -20,7 +20,7 @@ defmodule Server.NewInstance do
         atom(),
         non_neg_integer(),
         list(any()),
-        non_neg_integer(),
+        atom(),
         boolean(),
         boolean()
     ) :: 
@@ -30,7 +30,7 @@ defmodule Server.NewInstance do
             next_hop: atom(),
             num_of_replications: non_neg_integer(),
             replica_storage: list(any()),
-            commit_vector: non_neg_integer(),
+            rep_group: atom(),
             is_first: boolean(),
             is_last: boolean()
         }
@@ -40,7 +40,7 @@ defmodule Server.NewInstance do
         next_hop,
         num_of_replications,
         replica_storage,
-        commit_vector,
+        rep_group,
         is_first,
         is_last
     ) do
@@ -50,7 +50,7 @@ defmodule Server.NewInstance do
             next_hop: next_hop,
             num_of_replications: num_of_replications,
             replica_storage: replica_storage,
-            commit_vector: commit_vector,
+            rep_group: rep_group,
             is_first: is_first,
             is_last: is_last
         }

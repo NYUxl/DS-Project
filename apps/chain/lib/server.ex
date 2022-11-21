@@ -32,7 +32,7 @@ defmodule Server do
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
-        commit_vector: nil,
+        rep_group: nil,
         # forwarder and buffer
         is_first: nil,
         is_last: nil,
@@ -58,7 +58,7 @@ defmodule Server do
             next_hop: nil,
             num_of_replications: nil,
             replica_storage: nil,
-            commit_vector: nil,
+            rep_group: nil,
             is_first: nil,
             is_last: nil,
             forwarder: nil,
