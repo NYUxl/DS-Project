@@ -195,6 +195,9 @@ defmodule Server do
         end
     end
 
+    @doc """
+    Call this to recursively update the nf replicas
+    """
     @spec loop_update_replica(list(map()), list(map())) :: list(map())
     def loop_update_replica(storages, updates) do
         updated_storages = doing_loop_update(storages, updates, [])
