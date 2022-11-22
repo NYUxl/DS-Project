@@ -237,6 +237,11 @@ defmodule Server do
     def nf_node(state, extra_state) do
         receive do
             # Control message from orchestrator
+            {^state.orchestrator, :terminate} -> 
+                become_server(state)
+
+            {^state.orchestrator, :pause} ->
+                paused_node(state, [])
 
             # Heartbeat timer, send a heartbeat to the orchestrator
             :timer_heartbeat ->
@@ -271,6 +276,19 @@ defmodule Server do
         end
     end
 
-    
+    @doc """
+    If there are some more messages coming from prev_hop, they are stored in the extra state
+    """
+    @spec paused_node(%Server{}, list()) :: no_return()
+    def paused_node(state, extra_state) do
+    end
 
+    @doc """
+    Resume the service, send the stored messages
+    """
+    @spec back_to_nf_node(%Server{}, list()) :: no_return()
+    def back_to_nf_node(state, extra_state) do
+        messages = Enum.reverse(extra_state)
+        # TODO: to deal with the messages and send them out
+    end
 end
