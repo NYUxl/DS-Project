@@ -9,7 +9,7 @@ defmodule Server.NewInstance do
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
-        rep_group: nil,
+        commit_vector: nil,
         is_first: nil,
         is_last: nil
     )
@@ -20,7 +20,7 @@ defmodule Server.NewInstance do
         atom(),
         non_neg_integer(),
         list(any()),
-        atom(),
+        non_neg_integer(),
         boolean(),
         boolean()
     ) :: 
@@ -30,7 +30,7 @@ defmodule Server.NewInstance do
             next_hop: atom(),
             num_of_replications: non_neg_integer(),
             replica_storage: list(any()),
-            rep_group: atom(),
+            commit_vector: non_neg_integer(),
             is_first: boolean(),
             is_last: boolean()
         }
@@ -40,7 +40,7 @@ defmodule Server.NewInstance do
         next_hop,
         num_of_replications,
         replica_storage,
-        rep_group,
+        commit_vector,
         is_first,
         is_last
     ) do
@@ -50,7 +50,7 @@ defmodule Server.NewInstance do
             next_hop: next_hop,
             num_of_replications: num_of_replications,
             replica_storage: replica_storage,
-            rep_group: rep_group,
+            commit_vector: commit_vector,
             is_first: is_first,
             is_last: is_last
         }
@@ -109,12 +109,12 @@ defmodule Server.Message do
     )
 
     # TODO: check the correctness of type
-    @spec new(non_neg_integer(), string(), string(), map(), string()) :: %Message{}
+    @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string()) :: %Message{}
     def new(ue, pid, src, dst, pload) do
         %Message{
             nonce: nil,
             header: %{ue: ue, pid: pid, src_ip: src, dst_ip: dst},
-            payload: pload, # ue, loc
+            payload: pload
         }
     end
     
@@ -132,6 +132,7 @@ defmodule NF.StateUpdate do
     alias __MODULE__
     defstruct(
         action: nil,
-        item: nil
+        key: nil,
+        value: nil
     )
 end
