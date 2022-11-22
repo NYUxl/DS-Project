@@ -234,6 +234,15 @@ defmodule Server do
         receive do
             # Control message from orchestrator
 
+            # Heartbeat timer, send a heartbeat to the orchestrator
+            :timer_heartbeat ->
+                send(orchestrator, :heartbeat)
+                reset_heartbeat_timer(state)
+                nf_node(state, extra_state)
+            
+            # Nop timer, only received if it is the first nf in the chain and 
+            # no messages are received in a while
+
             # Message from previous hop
             {^prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
 
