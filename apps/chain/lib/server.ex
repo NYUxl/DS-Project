@@ -140,7 +140,7 @@ defmodule Server do
             {sender, message} ->
                 # should redirect the client to the orchestrator to
                 # ask for the first node inside the chain
-                send(sender, {:not_entry, message})
+                send(sender, {:not_entry, message.nonce})
 
             # messages for testing
 
