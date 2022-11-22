@@ -175,6 +175,7 @@ defmodule GNB do
     defstruct(
         id: nil,
         orchestrator: nil,
+        nonce: nil,
         buffer: nil,
         current_dealer: nil
     )
@@ -184,7 +185,8 @@ defmodule GNB do
         %GNB{
             id: id,
             orchestrator: orchestrator,
-            buffer: [],
+            nonce: 0,
+            buffer: {},
             current_dealer: nil
         }
     end
@@ -193,6 +195,8 @@ defmodule GNB do
     def gNB(state) do
         receive do
             # new request from UE
+            {sender, message} ->
+                message = 
 
             # need to ask for the chain entry
             {}

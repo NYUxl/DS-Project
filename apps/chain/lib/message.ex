@@ -103,6 +103,7 @@ defmodule Server.Message do
     """
     alias __MODULE__
     defstruct(
+        nonce: nil,
         header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil},
         payload: nil # payload 1500 bytes
     )
@@ -111,6 +112,7 @@ defmodule Server.Message do
     @spec new(non_neg_integer(), string(), string(), map(), string()) :: %Message{}
     def new(ue, pid, src, dst, pload) do
         %Message{
+            nonce: nil,
             header: %{ue: ue, pid: pid, src_ip: src, dst_ip: dst},
             payload: pload, # ue, loc
         }

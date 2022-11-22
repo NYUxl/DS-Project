@@ -111,7 +111,7 @@ defmodule Server do
     @spec server(%Server{}) :: no_return()
     def server(state) do
         receive do
-            # Control message from orchestrator
+            # control message from orchestrator
             {^state.orchestrator,
              %Server.NewInstance{
                 nf_name: nf,
@@ -136,15 +136,15 @@ defmodule Server do
                 state = add_buffer(state, is_last)
                 become_nf_node(state)
             
-            # Messages from clients
+            # messages from clients
             {sender, message} ->
                 # should redirect the client to the orchestrator to
                 # ask for the first node inside the chain
                 send(sender, {:not_entry, message})
 
-            # Messages for testing
+            # messages for testing
 
-            # Default entry
+            # default entry
             _ ->
                 server(state)
         end
@@ -154,7 +154,12 @@ defmodule Server do
     def become_nf_node(state) do
         state = %{state | in_use: true}
         reset_heartbeat_timer(state)
-        nf_node(state, nil)
+        if state.is_first do
+            state = reset_nop_timer(state)
+            nf_node(state, nil)
+        else
+            nf_node(state, nil)
+        end
     end
 
     @doc """
@@ -166,7 +171,7 @@ defmodule Server do
     Update replica's states
     """
     @spec update_replica(map(any()), map(any())) :: map(any())
-    def update_replica(storage,  update) do
+    def update_replica(storage, update) do
         case update.action do
             "insert" -> 
                 updated_storage_i = storage.at(idx) 
@@ -207,8 +212,17 @@ defmodule Server do
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
         receive do
-            # Control message from orchestrator
+            # control message from orchestrator
             
+            # heartbeat timer, send a heartbeat to the orchestrator
+            :timer_heartbeat ->
+                send(orchestrator, :heartbeat)
+                reset_heartbeat_timer(state)
+                nf_node(state, extra_state)
+            
+            # nop timer, only received if it is the first nf in the chain and 
+            # no messages are received in a while
+
             # Message from previous hop
             {^prev_hop, {logs, commit_vectors, message}} -> 
 
