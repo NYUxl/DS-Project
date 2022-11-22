@@ -160,36 +160,45 @@ defmodule Server do
     @doc """
     The NF processes the incoming message and update its own state
     """
-    @spec nf_update(map(), atom()) :: map()
+    @spec nf_update(map(any()), atom()) :: map()
     
     @doc """
     Update replica's states
     """
-    @spec update_replica(list(), list()) :: list(any())
+    @spec update_replica(map(any()), map(any())) :: map(any())
     def update_replica(storage,  update) do
-        loop_update_replica(storage, update, 0)
+        case update.action do
+            "insert" -> 
+                updated_storage_i = storage.at(idx) 
+                loop_update_replica(storage, update, idx + 1)
+            "delete" ->
+                loop_update_replica(storage, update, idx + 1)
+                
+            "modify" ->
+                loop_update_replica(storage, update, idx + 1)
+
+            _ ->
+                IO.puts("Not valid operation #{update.action} on storage state update")
+        end
     end
 
     @doc """
     For loop to update the replica's states
     """
-    @spec loop_update_replica(list(), list(), non_neg_integer()) :: list(any())
-    def loop_update_replica(storage,  update, idx) do
-        if idx < length(storage) do
-            case update.action do
-                "insert" -> 
-                    updated_storage_i = storage.at(idx) 
-                    loop_update_replica(storage, update, idx + 1)
-                "delete" ->
-                    loop_update_replica(storage, update, idx + 1)
-                    
-                "modify" ->
-                    loop_update_replica(storage, update, idx + 1)
-
-                _ ->
-                    IO.puts("Not valid operation #{update.action} on storage state update")
+    @spec doing_loop_update(list(map()), list(map()), list(map())) :: list(map())
+    def doing_loop_update(storages, updates, ret) do
+        if length(updates) == 0 do
+            ret
         else
-            storage
+            ret = [update_replica(hd(storages), hd(updates)) | ret]
+            doing_loop_update(tl(storages), tl(updates), ret)
+        end
+    end
+
+    @spec loop_update_replica(list(map()), list(map())) :: list(map())
+    def loop_update_replica(storages, updates) do
+        updated_storages = doing_loop_update(storages, updates, [])
+        Enum.reverse(updated_storages)
     end
 
     @spec nf_node(%Server{}, any()) :: no_return()
