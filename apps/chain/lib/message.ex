@@ -94,7 +94,7 @@ defmodule UE.Message do
     alias __MODULE__
     defstruct(
         nonce: nil,
-        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil},
+        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil, sub: nil},
         payload: nil # payload 1500 bytes
     )
 
@@ -103,7 +103,7 @@ defmodule UE.Message do
     def new(pid, ue, sb, src, dst, pload) do
         %Message{
             nonce: nil,
-            header: %{pid: pid, ue: ue, sb: sb, src_ip: src, dst_ip: dst},
+            header: %{pid: pid, ue: ue, src_ip: src, dst_ip: dst, sub: sb},
             payload: pload
         }
     end
