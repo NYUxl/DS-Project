@@ -325,8 +325,17 @@ defmodule Server do
 
                 end
             :upf ->
-                # user plane to forward
-
+                # traffic statistic
+                src_ip = msg.header.src_ip
+                IO.puts("Update total number of packets from src_ip.")
+                cnt = Map.get(state.nf_state, ue_id)
+                if cnt == nil do
+                    updated_nf_state = Map.put(state.nf_state, src_ip, 1)
+                    {state, msg, [%StateUpdate{action: "insert", key: src_ip, value: 1}]}
+                else
+                    updated_nf_state = Map.put(state.nf_state, src_ip, cnt + 1)
+                    {state, msg, [%StateUpdate{action: "modify", key: src_ip, value: cnt + 1}]}
+                end
         end  
     
     end
@@ -366,7 +375,7 @@ defmodule Server do
 
             # Messages from clients
             {sender, {msg, piggyback_logs, commit_vectors}} ->
-                
+                # forwarder logic here
 
 
             # Messages for testing
