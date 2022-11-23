@@ -279,7 +279,6 @@ defmodule GNB do
                 end
         end
     end
-        end
 
 defmodule UE do
     @moduledoc """

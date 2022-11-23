@@ -236,6 +236,7 @@ defmodule Server do
                         {state, nil}
                         # TODO: send pkt
                 end
+
             :ausf ->
                 # check ue authentication
                 ue_id = msg.header.ue
@@ -253,7 +254,7 @@ defmodule Server do
                         IO.puts("Fail to authenticate.")
                         {state, nil}
                 end
-            end       
+                
             :smf ->
                 # session management
                 ue_id = msg.header.ue
@@ -261,7 +262,7 @@ defmodule Server do
                 case sb_log do
                     
                 end
-            end  
+        end  
     
     end
 
