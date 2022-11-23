@@ -160,7 +160,7 @@ defmodule Server do
     @doc """
     Update replica's states
     """
-    @spec update_one_entry(map(any()), map(any())) :: map(any())
+    @spec update_one_entry(map(), map()) :: map()
     def update_one_entry(storage, update) do
         case update.action do
             "insert" -> 
@@ -183,7 +183,7 @@ defmodule Server do
     storage: nf replciate state
     update: list of state update requests
     """
-    @spec update_replica(map(any()), list(map(any()))) :: map(any())
+    @spec update_replica(map(), list(map())) :: map()
     def update_replica(storage, updates) do
         if length(updates) == 0 do
             storage
@@ -219,7 +219,7 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(atom(), map(any()), non_neg_integer()) :: {%Server{}, %Message{}, list(%StateUpdate{})}
+    @spec nf_process(atom(), map(), non_neg_integer()) :: {%Server{}, %Message{}, list(%StateUpdate{})}
     def nf_process(state, msg)
         case state.nf_name do
             :amf ->

@@ -143,15 +143,69 @@ defmodule FTC do
         orchestrator(state, reset_extra_state())
     end
 
+    @spec alive_or_prev(list(atom()), list(atom()), non_neg_integer()) :: non_neg_integer()
+    def alive_or_prev(chain, deads, idx) do
+        if Enum.find(deads, Enum.at(chain, idx)) do
+            alive_or_prev(chain, deads, rem(idx + length(chain) - 1, length(chain)))
+        else
+            idx
+        end
+    end
+
+    @spec alive_or_next(list(atom()), list(atom()), non_neg_integer()) :: non_neg_integer()
+    def alive_or_next(chain, deads, idx) do
+        if Enum.find(deads, Enum.at(chain, idx)) do
+            alive_or_next(chain, deads, rem(idx + 1, length(chain)))
+        else
+            idx
+        end
+    end
+
+    @doc """
+    To make sure both p_node and n_node are all valid keys in the storages
+    """
+    @spec update_storages(map(), atom(), atom()) :: map()
+    def update_storages(storages, p_node, n_node) do
+        
+    end
+
     @spec fix_node_at(%FTC{}, list(atom()), list(atom()), map(), non_neg_integer()) :: %FTC{}
-    def fix_node_at(state, dead_nodes, alive_nodes, storages, idx) do
+    def fix_node_at(state, dead_nodes, new_nodes, storages, idx) do
         if idx < length(dead_nodes) do
             # nodes before idx are fixed, now to fix idx-th node
-            new_node = Enum.random(alive_nodes)
-            alive_nodes
+            # retrieve the state and restore the node
+            chain_idx = Enum.find_index(state.nodes, fn x -> x == Enum.at(dead_nodes, idx) end)
+            len = length(state.nodes)
+            prev_idx = alive_or_prev(state.nodes, dead_nodes, rem(chain_idx + len - 1, len))
+            prev_node = Enum.at(state.nodes, prev_idx)
+            next_idx = alive_or_next(state.nodes, dead_nodes, rem(chain_idx + 1, len))
+            next_node = Enum.at(state.nodes, next_idx)
+            # pull some state if needed
+            storages = update_storages(storages, prev_idx, next_idx)
+            # reconstruct the replica state
+            reconstructed_replica_1 = Enum.drop(Map.get(storages, next_node), rem(next_idx + len - chain_idx, len))
+            reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), rem(chain_idx + len - prev_idx, len))
+            reconstructed_replica = reconstructed_replica_1 ++ reconstructed_replica_2
+
+            send(
+                Enum.at(new_nodes, chain_idx),
+                Server.NewInstance.new(
+                    Enum.at(state.nf_chain, chain_idx),
+                    Enum.at(new_nodes, rem(chain_idx + len - 1, len)),
+                    Enum.at(new_nodes, rem(chain_idx + 1, len)),
+                    state.num_of_replications,
+                    reconstructed_replica,
+                    Enum.at(state.nf_chain, len - state.num_of_replications),
+                    if(chain_idx == 0, do: true, else: false),
+                    if(chain_idx == (length(state.nodes) - 1), do: false, else: true)
+                )
+            )
+
+            # to next iter
+            fix_node_at(state, dead_nodes, avail_nodes, new_nodes, storages, idx + 1)
         else
             # all dead nodes fixed
-            state
+            %{state | nodes: new_nodes}
         end
     end
 
@@ -159,8 +213,15 @@ defmodule FTC do
     def fix_nodes(state, dead_nodes) do
         # it would be better if we can make sure that there are enough alive servers
         # other than the dead ones, but it is ok to assume that they are still usable
-        alive_nodes = state.view -- state.nodes ++ dead_nodes
-        fix_node_at(state, dead_nodes, alive_nodes, %{}, 0)
+        avail_nodes = state.view -- state.nodes ++ dead_nodes
+        selected_nodes = Enum.take_random(avail_nodes, length(dead_nodes))
+        new_nodes = Enum.map_reduce(
+            Range.new(0, length(dead_nodes) - 1), 
+            state.nodes, 
+            fn x, acc -> List.replace_at(acc, Enum.find_index(acc, Enum.at(dead_nodes, x)), Enum.at(selected_nodes, x)) end
+        )
+        state = fix_node_at(state, dead_nodes, new_nodes, %{}, 0)
+        state
     end 
 
     @spec orchestrator(%FTC{}, any()) :: no_return()
