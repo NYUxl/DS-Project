@@ -95,11 +95,11 @@ defmodule FTC do
             Enum.at(state.nodes, 0),
             Server.NewInstance.new(
                 Enum.at(state.nf_chain, 0),
-                nil,
+                Enum.at(state.nodes, len - 1),
                 Enum.at(state.nodes, 1),
                 state.num_of_replications,
                 Enum.slice(double_init, len - 1, state.num_of_replications),
-                0,
+                Enum.at(state.nf_chain, len + 1 - state.num_of_replications),
                 true,
                 false
             )
@@ -110,10 +110,10 @@ defmodule FTC do
             Server.NewInstance.new(
                 Enum.at(state.nf_chain, len - 1),
                 Enum.at(state.nodes, len - 2),
-                nil,
+                Enum.at(state.nodes, 0),
                 state.num_of_replications,
                 Enum.slice(double_init, 0, state.num_of_replications),
-                0,
+                Enum.at(state.nf_chain, len - state.num_of_replications),
                 false,
                 true
             )
@@ -130,7 +130,7 @@ defmodule FTC do
                         Enum.at(state.nodes, idx + 1),
                         state.num_of_replications,
                         Enum.slice(double_init, len - 1 - idx, state.num_of_replications),
-                        0,
+                        Enum.at(state.nf_chain, rem(len + idx + 1 - state.num_of_replications, len)),
                         false,
                         false
                     )
@@ -143,12 +143,12 @@ defmodule FTC do
         orchestrator(state, reset_extra_state())
     end
 
-    @spec fix_node_at(%FTC{}, list(atom()), map(), non_neg_integer()) :: %FTC{}
-    def fix_node_at(state, dead_nodes, storages, idx) do
+    @spec fix_node_at(%FTC{}, list(atom()), list(atom()), map(), non_neg_integer()) :: %FTC{}
+    def fix_node_at(state, dead_nodes, alive_nodes, storages, idx) do
         if idx < length(dead_nodes) do
             # nodes before idx are fixed, now to fix idx-th node
-            avail_list = Enum.filter(state.view, fn x -> )
-            new_node = Enum.random()
+            new_node = Enum.random(alive_nodes)
+            alive_nodes
         else
             # all dead nodes fixed
             state
@@ -157,8 +157,10 @@ defmodule FTC do
 
     @spec fix_nodes(%FTC{}, list(atom())) :: %FTC{}
     def fix_nodes(state, dead_nodes) do
+        # it would be better if we can make sure that there are enough alive servers
+        # other than the dead ones, but it is ok to assume that they are still usable
         alive_nodes = state.view -- state.nodes ++ dead_nodes
-        fix_node_at(state, dead_nodes, %{}, 0)
+        fix_node_at(state, dead_nodes, alive_nodes, %{}, 0)
     end 
 
     @spec orchestrator(%FTC{}, any()) :: no_return()
