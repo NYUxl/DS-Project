@@ -284,9 +284,23 @@ defmodule FTC do
 
                 state = fix_nodes(state, dead_nodes)
                 # to resume the whole process
+                len = length(state.nodes)
+                Enum.map(alive_nodes, fn x -> 
+                    chain_idx = Enum.find_index(state.nodes, fn n -> n == x end)
+                    send(
+                        x,
+                        Server.ChainUpdate.new(
+                            Enum.at(rem(chain_idx + len - 1, len)),
+                            Enum.at(rem(chain_idx + 1, len))
+                        )
+                    )
+                end)
                 Enum.map(alive_nodes, fn x -> send(x, :resume) end)
                 state = reset_live_timer(state)
                 orchestrator(state, reset_extra_state())
+            
+            # the chain head query from the gNB
+            {sender, :request_for_head} ->
         end
     end
 end
@@ -299,6 +313,8 @@ defmodule GNB do
     defstruct(
         id: nil,
         orchestrator: nil,
+        wait_timeout: nil,
+        wait_timer: nil,
         # the latest nonce to tag
         nonce: nil,
         # the next nonce to send, should be <= nonce
@@ -309,13 +325,17 @@ defmodule GNB do
         current_dealer: nil
     )
 
+    @retry_timeout 10 000
+
     @spec new_gNB(atom(), non_neg_integer()) :: %GNB{}
     def new_gNB(orchestrator, thres) do
         %GNB{
             id: whoami(),
             orchestrator: orchestrator,
-            nonce: 0,
-            nonce_to_send: 0,
+            wait_timeout: @retry_timeout,
+            wait_timer: nil,
+            nonce: 1,
+            nonce_to_send: 1,
             expire_thres: thres,
             buffer: {},
             current_head: nil
@@ -338,16 +358,23 @@ defmodule GNB do
         receive do
             # message from orchestrator for current chain head
             {^state.orchestrator, {:current_head, dealer}} ->
-                state = %{state | current_head: dealer}
+                Emulation.cancel_timer(state.wait_timer)
+                state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
                 gNB(state)
 
             # need to ask for the chain entry
             {node, {:not_entry, nonce}} ->
+                state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
                 send(state.orchestrator, :request_for_head)
                 state = %{state | current_head: :waiting, nonce_to_send: nonce}
                 gNB(state)
             
+            :timer ->
+                state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
+                send(state.orchestrator, :request_for_head)
+                gNB(state)
+
             # response from buffer
             {node, {:done, nonce, updated_header}} ->
                 # do nothing if the corresponding message is dropped earlier

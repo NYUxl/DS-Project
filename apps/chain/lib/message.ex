@@ -77,14 +77,24 @@ defmodule Server.StateResponse do
     end
 end
 
-defmodule SomeName do
+defmodule Server.ChainUpdate do
     @moduledoc """
-    
+    The orchestrator use this to tell the node about its new prev_hop
+    and next_hop
     """
     alias __MODULE__
     defstruct(
-        default: nil
+        prev_hop: nil,
+        next_hop: nil
     )
+
+    @spec new(atom(), atom()) :: %ChainUpdate{}
+    def new(p, n) do
+        %ChainUpdate{
+            prev_hop: p,
+            next_hop: n
+        }
+    end
 end
 
 defmodule Message do
@@ -115,7 +125,7 @@ end
 
 defmodule Server.MessageResponse do
     @moduledoc """
-    
+    Response for a message from the buffer to the gNB
     """
     alias __MODULE__
     defstruct(
