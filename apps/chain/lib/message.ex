@@ -87,13 +87,16 @@ defmodule SomeName do
     )
 end
 
-defmodule UE.Message do
+defmodule Message do
     @moduledoc """
     Message architecture of the FTC, containing header and content
     """
     alias __MODULE__
     defstruct(
+        # header added by gNB
+        gnb: nil,
         nonce: nil,
+        # content sent by UE
         header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil, sub: nil},
         payload: nil # payload 1500 bytes
     )
@@ -119,11 +122,11 @@ defmodule Server.MessageResponse do
         response: nil
     )
 
-    @spec succ(non_neg_integer(), non_neg_integer()) :: %MessageResponse{}
-    def succ(ue, pid) do
+    @spec succ(non_neg_integer(), non_neg_integer(), any()) :: %MessageResponse{}
+    def succ(ue, pid, additional_message) do
         %MessageResponse{
             header: %{ue: ue, pid: pid},
-            response: :succ
+            response: {:succ, additional_message}
         }
     end
 

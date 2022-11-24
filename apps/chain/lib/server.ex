@@ -343,7 +343,17 @@ defmodule Server do
     
     end
 
-    @spec buffer_response(%Server{}, map()) :: 
+    @spec buffer_response(%Server{}, map()) :: %Server{}
+    def buffer_response(state, commit_vectors) do
+        latest_nonce = Enum.min(Map.values(commit_vectors))
+        repliable = Enum.filter(Map.keys(state.buffer), fn x -> x <= latest_nonce end)
+        Enum.map(repliable, fn x ->
+            msg = Map.get(state.buffer, x)
+            send(msg.gnb, {:done, msg.nonce, msg.header})
+        end)
+        state = %{state | buffer: Map.drop(state.buffer, repliable)}
+        state
+    end
 
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
@@ -367,8 +377,9 @@ defmodule Server do
             # Message from previous hop
             {^state.prev_hop, {:empty, piggyback_logs, commit_vectors}} ->
 
-            {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
 
+            {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
+                
 
             {^state.prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
                 # update replica
@@ -385,7 +396,9 @@ defmodule Server do
 
                 if state.is_last do # put message in the buffer and send to the forwarder
                     state = %{state | buffer: Map.put(state.buffer, msg.nonce, msg)}
-                    state = 
+                    state = buffer_response(state, commit_vectors)
+                    # send the piggyback and commit_vectors back to the first node
+                    send(state.next_hop, {:from_buffer, piggyback_logs, commit_vectors})
                     nf_node(state, extra_state)
                 else # send to the next nf in the chain
                     send(state.next_hop, {msg, piggyback_logs, commit_vectors})

@@ -309,10 +309,10 @@ defmodule GNB do
         current_dealer: nil
     )
 
-    @spec new_gNB(atom(), atom(), non_neg_integer()) :: %GNB{}
-    def new_gNB(id, orchestrator, thres) do
+    @spec new_gNB(atom(), non_neg_integer()) :: %GNB{}
+    def new_gNB(orchestrator, thres) do
         %GNB{
-            id: id,
+            id: whoami(),
             orchestrator: orchestrator,
             nonce: 0,
             nonce_to_send: 0,
@@ -349,7 +349,7 @@ defmodule GNB do
                 gNB(state)
             
             # response from buffer
-            {node, {:done, nonce}} ->
+            {node, {:done, nonce, updated_header}} ->
                 # do nothing if the corresponding message is dropped earlier
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
@@ -357,7 +357,7 @@ defmodule GNB do
 
                 # retrieve the message
                 {req_sender, message} = Map.get(state.buffer, nonce)
-                send(req_sender, Server.MessageResponse.succ(message.header.ue, message.header.pid))
+                send(req_sender, Server.MessageResponse.succ(message.header.ue, message.header.pid, updated_header))
 
                 state = %{state | buffer: Map.pop(state.buffer, nonce)}
                 nonces = Enum.filter(Map.keys(state.buffer), fn x -> x < state.nonce - state.expire_thres end)
@@ -381,7 +381,7 @@ defmodule GNB do
             # new request from UE
             {sender, message} ->
                 # tag the message with the current nonce
-                message = %{message | nonce: state.nonce}
+                message = %{message | gnb: state.id, nonce: state.nonce}
                 state = %{state | buffer: Map.put(state.buffer, state.nonce, {sender, message})}
                 # update the nonce
                 state = %{state | nonce: state.nonce + 1}
