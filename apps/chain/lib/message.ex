@@ -105,6 +105,7 @@ defmodule Message do
     @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string(), string()) :: %Message{}
     def new(pid, ue, sb, src, dst, pload) do
         %Message{
+            gnb: nil,
             nonce: nil,
             header: %{pid: pid, ue: ue, src_ip: src, dst_ip: dst, sub: sb},
             payload: pload

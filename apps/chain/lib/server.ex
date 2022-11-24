@@ -223,7 +223,7 @@ defmodule Server do
     0: de-registered
     """
     @spec nf_process(atom(), map(), non_neg_integer()) :: {%Server{}, %Message{}, list(%StateUpdate{})}
-    def nf_process(state, msg)
+    def nf_process(state, msg) do
         case state.nf_name do
             :amf ->
                 # check ue registration status
@@ -381,7 +381,17 @@ defmodule Server do
 
 
             {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
-                
+                # update replica
+                updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
+                state = %{state | replica_storage: updated_storage}
+                # update commit_vectors
+                {nonce, _} = Enum.at(piggyback_logs, -1)
+                commit_vectors = Map.put(commit_vectors, state.rep_group, nonce)
+                # update piggyback
+                piggyback_logs = List.delete_at(piggyback_logs, -1)
+
+                state = %{state | forwarder: state.forwarder ++ [{piggyback_logs, commit_vectors}]}
+                orchestrator(state, extra_state)
 
             {^state.prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
                 # update replica
@@ -391,7 +401,7 @@ defmodule Server do
                 {state, msg, updates} = nf_process(state, msg)
                 # update commit_vectors
                 {nonce, _} = Enum.at(piggyback_logs, -1)
-                commit_vectors = Map.put(commit_vectors, state.rep_group, nonce)
+                commit_vectors = if(nonce != nil, do: Map.put(commit_vectors, state.rep_group, nonce), else: commit_vectors)
                 # update piggyback
                 piggyback_logs = List.delete_at(piggyback_logs, -1)
                 piggyback_logs = List.insert_at(piggyback_logs, 0, {msg.nonce, updates})
@@ -417,6 +427,10 @@ defmodule Server do
                     {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop(state.forwarder, 0, {[], %{}})
                     state = %{state | forwarder: new_forwarder}
                     state = reset_nop_timer(state)
+                    
+                    # nf process logic and update primary state
+                    {state, msg, updates} = nf_process(state, msg)
+                    piggyback_logs = List.insert_at(piggyback_logs, 0, {msg.nonce, updates})
                     send(state.next_hop, {msg, piggyback_logs, commit_vectors})
                     nf_node(state, extra_state)
                 end
