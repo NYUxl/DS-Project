@@ -325,7 +325,7 @@ defmodule GNB do
         current_dealer: nil
     )
 
-    @retry_timeout 10 000
+    @retry_timeout 1000
 
     @spec new_gNB(atom(), non_neg_integer()) :: %GNB{}
     def new_gNB(orchestrator, thres) do
@@ -351,6 +351,14 @@ defmodule GNB do
         else
             state
         end
+    end
+
+    @spec startup(%GNB{}) :: no_return()
+    def startup(state) do
+        state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
+        send(state.orchestrator, :request_for_head)
+        state = %{state | current_head: :waiting}
+        gNB(state)
     end
 
     @spec gNB(%GNB{}) :: no_return()
