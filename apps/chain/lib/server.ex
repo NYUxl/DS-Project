@@ -83,7 +83,9 @@ defmodule Server do
     def add_forwarder(state, is_first) do
         state = %{state | is_first: is_first}
         if is_first do
-            %{state | forwarder: []}
+            state = %{state | forwarder: []}
+            state = reset_nop_timer(state)
+            state
         else
             state
         end
@@ -93,7 +95,7 @@ defmodule Server do
     def add_buffer(state, is_last) do
         state = %{state | is_last: is_last}
         if is_last do
-            %{state | buffer: []}
+            %{state | buffer: %{}}
         else
             state
         end
@@ -195,12 +197,13 @@ defmodule Server do
     @doc """
     For loop to update the replica's states
     """
-    @spec doing_loop_update(list(map()), list(map()), list(map())) :: list(map())
+    @spec doing_loop_update(list(map()), list(), list(map())) :: list(map())
     def doing_loop_update(storages, updates, ret) do
         if length(updates) == 0 do
             ret
         else
-            ret = [update_replica(hd(storages), hd(updates)) | ret]
+            {nonce, one_log} = hd(updates)
+            ret = [update_replica(hd(storages), one_log) | ret]
             doing_loop_update(tl(storages), tl(updates), ret)
         end
     end
@@ -208,7 +211,7 @@ defmodule Server do
     @doc """
     Call this to recursively update the nf replicas
     """
-    @spec loop_update_replica(list(map()), list(map())) :: list(map())
+    @spec loop_update_replica(list(map()), list()) :: list(map())
     def loop_update_replica(storages, updates) do
         updated_storages = doing_loop_update(storages, updates, [])
         Enum.reverse(updated_storages)
@@ -340,6 +343,8 @@ defmodule Server do
     
     end
 
+    @spec buffer_response(%Server{}, map()) :: 
+
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
         receive do
@@ -360,6 +365,88 @@ defmodule Server do
             # no messages are received in a while
 
             # Message from previous hop
+            {^state.prev_hop, {:empty, piggyback_logs, commit_vectors}} ->
+
+            {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
+
+
+            {^state.prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
+                # update replica
+                updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
+                state = %{state | replica_storage: updated_storage}
+                # nf process logic and update primary state
+                {state, msg, updates} = nf_process(state, msg)
+                # update commit_vectors
+                {nonce, _} = Enum.at(piggyback_logs, -1)
+                commit_vectors = Map.put(commit_vectors, state.rep_group, nonce)
+                # update piggyback
+                piggyback_logs = List.delete_at(piggyback_logs, -1)
+                piggyback_logs = List.insert_at(piggyback_logs, 0, {msg.nonce, updates})
+
+                if state.is_last do # put message in the buffer and send to the forwarder
+                    state = %{state | buffer: Map.put(state.buffer, msg.nonce, msg)}
+                    state = 
+                    nf_node(state, extra_state)
+                else # send to the next nf in the chain
+                    send(state.next_hop, {msg, piggyback_logs, commit_vectors})
+                    nf_node(state, extra_state)
+                end
+
+            # Messages from clients
+            {sender, msg} ->
+                if not state.is_first do
+                    send(sender, {:not_entry, msg.nonce})
+                    nf_node(state, extra_state)
+                else
+                    # this is the first nf node
+                    {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop(state.forwarder, 0, {[], %{}})
+                    state = %{state | forwarder: new_forwarder}
+                    state = reset_nop_timer(state)
+                    send(state.next_hop, {msg, piggyback_logs, commit_vectors})
+                    nf_node(state, extra_state)
+                end
+
+            # Messages for testing
+
+            # Default entry
+            _ ->
+                nf_node(state, extra_state)
+        end
+    end
+
+    @doc """
+    If there are some more messages coming from prev_hop, they are stored in the extra state
+    """
+    @spec paused_node(%Server{}, list()) :: no_return()
+    def paused_node(state, extra_state) do
+        receive do
+            # Control message from orchestrator
+            {^state.orchestrator, :terminate} -> 
+                become_server(state)
+
+            {^state.orchestrator, :resume} ->
+                back_to_nf_node(state, extra_state)
+
+            {^state.orchestrator, :get_state} ->
+                send(
+                    state.orchestrator,
+                    Server.StateResponse.new(
+                        state.id,
+                        state.replica_storage
+                    )
+                )
+                paused_node(state, extra_state)
+
+            # Heartbeat timer, send a heartbeat to the orchestrator
+            :timer_heartbeat ->
+                send(orchestrator, :heartbeat)
+                reset_heartbeat_timer(state)
+                paused_node(state, extra_state)
+            
+            # Nop timer, only received if it is the first nf in the chain and 
+            # no messages are received in a while
+
+            # Message from previous hop
             {^prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
                 # update replica
                 updated = loop_update_replica(state.replica_storage, piggyback_logs)
@@ -367,8 +454,8 @@ defmodule Server do
                 # nf process logic and update primary state
                 {state, msg, updates} = nf_process(state, msg)
                 # update piggyback
-                piggyback_logs = List.delete(piggyback_logs, -1)
-                piggyback_logs = List.insert(piggyback_logs, 0, updates)
+                piggyback_logs = List.delete_at(piggyback_logs, -1)
+                piggyback_logs = List.insert_at(piggyback_logs, 0, updates)
                 # TODO: commit_vectors
                 # send to the next nf in the chain
                 send(next_hop, {msg, piggyback_logs, commit_vectors})
@@ -384,13 +471,6 @@ defmodule Server do
             _ ->
                 nf_node(state, extra_state)
         end
-    end
-
-    @doc """
-    If there are some more messages coming from prev_hop, they are stored in the extra state
-    """
-    @spec paused_node(%Server{}, list()) :: no_return()
-    def paused_node(state, extra_state) do
     end
 
     @doc """
