@@ -272,8 +272,10 @@ defmodule Server do
                 # session management
                 ue_id = msg.header.ue
                 subscriber = msg.header.sb
-                if Map.get(state.nf_state, ue_id) != nil do
+                ex_src_ip = Map.get(state.nf_state, ue_id)
+                if ex_src_ip != nil do
                     IO.puts("Already allocated an IP.")
+                    msg = %{msg | msg.header: %{msg.header | src_ip: ex_src_ip}}
                     {state, msg, []}
                 else
                     case subscriber do
