@@ -46,26 +46,30 @@ defmodule FTC do
     def init_state(nf) do
         case nf do
             :amf ->
-                "AMF state initialized"
+                # "AMF state initialized"
                 %{} # key:UEid, value:location, registration_state(bool)
+            
             :ausf ->
-                "AUSF state initialized"
-                %{1: {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
+                # "AUSF state initialized"
+                %{1 => {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
+            
             :smf ->
-                "SMF state initialized"
-                %{"verizon": 100, "mint": 100, "at&t": 100} # entries: {key:UEid, value:ip}, extra_entries: {k: sub, v: max_ip} sub: "version", "mint", "at&t"
+                # "SMF state initialized"
+                %{"verizon" => 100, "mint" => 100, "at&t" => 100} # entries: {key:UEid, value:ip}, extra_entries: {k: sub, v: max_ip} sub: "version", "mint", "at&t"
+            
             :upf ->
-                "UPF state initialized"
+                # "UPF state initialized"
                 %{} # key:src_ip, value:forwarding_port
+
             _ ->
-                "Cannot initialize #{nf}"
+                IO.puts("Cannot initialize #{nf}")
         end
     end
 
     @spec reset_live_timer(%FTC{}) :: %FTC{}
     def reset_live_timer(state) do
         if state.live_timer != nil do
-            n = Emulation.cancel_timer(state.live_timer)
+            _n = Emulation.cancel_timer(state.live_timer)
         end
         %{state | live_timer: Emulation.timer(state.live_timeout)}
     end
@@ -83,7 +87,7 @@ defmodule FTC do
     """
     @spec start(%FTC{}) :: no_return()
     def start(state) do
-        state = %{state | nodes: Enum.take_random(state.view, length(nf_chain))}
+        state = %{state | nodes: Enum.take_random(state.view, length(state.nf_chain))}
         
         # assign initial states to each node
         initial_states = Enum.map(state.nf_chain, fn x -> init_state(x) end)
@@ -140,7 +144,7 @@ defmodule FTC do
 
         # wait for heartbeat
         state = reset_live_timer(state)
-        orchestrator(state, reset_extra_state())
+        orchestrator(state, reset_extra_state(state))
     end
 
     @spec alive_or_prev(list(atom()), list(atom()), non_neg_integer()) :: non_neg_integer()
@@ -235,7 +239,7 @@ defmodule FTC do
             )
 
             # to next iter
-            fix_node_at(state, dead_nodes, avail_nodes, new_nodes, storages, idx + 1)
+            fix_node_at(state, dead_nodes, new_nodes, storages, idx + 1)
         else
             # all dead nodes fixed
             %{state | nodes: new_nodes}
@@ -267,7 +271,7 @@ defmodule FTC do
                     orchestrator(state, extra_state)
                 else
                     state = reset_live_timer(state)
-                    orchestrator(state, reset_extra_state())
+                    orchestrator(state, reset_extra_state(state))
                 end
             
             # liveness timer received, some node died
@@ -297,10 +301,12 @@ defmodule FTC do
                 end)
                 Enum.map(alive_nodes, fn x -> send(x, :resume) end)
                 state = reset_live_timer(state)
-                orchestrator(state, reset_extra_state())
+                orchestrator(state, reset_extra_state(state))
             
             # the chain head query from the gNB
             {sender, :request_for_head} ->
+                send(sender, {:current_head, hd(state.nodes)})
+                orchestrator(state, extra_state)
         end
     end
 end
@@ -342,7 +348,7 @@ defmodule GNB do
         }
     end
 
-    @spec send_messages(%GNB{}) :: %GNB()
+    @spec send_messages(%GNB{}) :: %GNB{}
     def send_messages(state) do
         if state.nonce_to_send < state.nonce do
             send(state.current_head, Map.get(state.buffer, state.nonce_to_send))
@@ -438,6 +444,7 @@ defmodule GNB do
                 end
         end
     end
+end
 
 defmodule UE do
     @moduledoc """

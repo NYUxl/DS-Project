@@ -72,7 +72,7 @@ defmodule Server do
     @spec reset_nop_timer(%Server{}) :: %Server{}
     def reset_nop_timer(state) do
         if state.nop_timer != nil do
-            n = Emulation.cancel_timer(state.nop_timer)
+            _n = Emulation.cancel_timer(state.nop_timer)
         end
         %{state | nop_timer: Emulation.timer(state.nop_timeout, :timer_nop)}
     end
@@ -110,9 +110,10 @@ defmodule Server do
 
     @spec server(%Server{}) :: no_return()
     def server(state) do
+        orch = state.orchestrator
         receive do
             # Control message from orchestrator
-            {^state.orchestrator,
+            {^orch,
              %Server.NewInstance{
                 nf_name: nf,
                 prev_hop: prev_hop,
@@ -164,14 +165,17 @@ defmodule Server do
     def update_one_entry(storage, update) do
         case update.action do
             "insert" -> 
-                Map.put(storage, update.key, update.value)
                 IO.puts("Insert a rule in replica")
+                Map.put_new(storage, update.key, update.value)
+
             "delete" ->
-                Map.delete(storage, update.key)
                 IO.puts("Delete a rule in replica")
+                Map.delete(storage, update.key)
+            
             "modify" ->
-                %{storage | update.key: update.value}
                 IO.puts("Modify a rule in replica")
+                Map.put(storage, update.key, update.value)
+    
             _ ->
                 IO.puts("Not valid operation #{update.action} on storage state update")
         end
@@ -189,6 +193,7 @@ defmodule Server do
             storage
         else
             storage = Enum.reduce(updates, storage, fn up, acc -> update_one_entry(acc, up) end)
+            storage
         end
     end
 
@@ -200,7 +205,7 @@ defmodule Server do
         if length(updates) == 0 do
             ret
         else
-            {nonce, one_log} = hd(updates)
+            {_nonce, one_log} = hd(updates)
             ret = [update_replica(hd(storages), one_log) | ret]
             doing_loop_update(tl(storages), tl(updates), ret)
         end
@@ -220,7 +225,7 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(atom(), map(), non_neg_integer()) :: {%Server{}, %Message{}, list(%StateUpdate{})}
+    @spec nf_process(%Server{}, %Message{}) :: {%Server{}, %Message{}, list(%StateUpdate{})}
     def nf_process(state, msg) do
         case state.nf_name do
             :amf ->
@@ -235,7 +240,7 @@ defmodule Server do
                         
                     0 ->
                         IO.puts("Update de-registered to register.")
-                        state = %{state | nf_state:Map.put(state.nf_state, ue_id, 1)}
+                        state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
                         {state, msg, [%StateUpdate{action: "modify", key: ue_id, value: 1}]}
                         
                     1 -> 
@@ -274,7 +279,7 @@ defmodule Server do
                 ex_src_ip = Map.get(state.nf_state, ue_id)
                 if ex_src_ip != nil do
                     IO.puts("Already allocated an IP.")
-                    msg = %{msg | msg.header: %{msg.header | src_ip: ex_src_ip}}
+                    msg = %{msg | header: %{msg.header | src_ip: ex_src_ip}}
                     {state, msg, []}
                 else
                     case subscriber do
