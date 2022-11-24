@@ -161,12 +161,45 @@ defmodule FTC do
         end
     end
 
+    @spec wait_for_state_response(atom()) :: any()
+    def wait_for_state_response(node) do
+        receive do
+            {^node, %Server.StateResponse{id: ^node, state: replica}} ->
+                replica
+            
+            _ ->
+                wait_for_state_response(node)
+        end
+    end
+
     @doc """
     To make sure both p_node and n_node are all valid keys in the storages
     """
     @spec update_storages(map(), atom(), atom()) :: map()
     def update_storages(storages, p_node, n_node) do
-        
+        if Map.get(storages, p_node) == nil do
+            send(p_node, :get_state)
+            replica = wait_for_state_response(p_node)
+            storages = Map.put(p_node, replica)
+
+            if Map.get(storages, n_node) == nil do
+                send(n_node, :get_state)
+                replica = wait_for_state_response(n_node)
+                storages = Map.put(n_node, replica)
+                storages
+            else
+                storages
+            end
+        else
+            if Map.get(storages, n_node) == nil do
+                send(n_node, :get_state)
+                replica = wait_for_state_response(n_node)
+                storages = Map.put(n_node, replica)
+                storages
+            else
+                storages
+            end
+        end
     end
 
     @spec fix_node_at(%FTC{}, list(atom()), list(atom()), map(), non_neg_integer()) :: %FTC{}
