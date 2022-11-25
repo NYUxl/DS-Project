@@ -1,5 +1,5 @@
-defmodule FTC.MixProject do
-  use Mix.Project
+defmodule FCT.MixProject do
+ use Mix.Project
 
   def project do
     [
