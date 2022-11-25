@@ -1,4 +1,4 @@
-defmodule Raft.MixProject do
+defmodule FTC.MixProject do
   use Mix.Project
 
   def project do
