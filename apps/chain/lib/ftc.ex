@@ -184,12 +184,12 @@ defmodule FTC do
         if Map.get(storages, p_node) == nil do
             send(p_node, :get_state)
             replica = wait_for_state_response(p_node)
-            storages = Map.put(p_node, replica)
+            storages = Map.put(storages, p_node, replica)
 
             if Map.get(storages, n_node) == nil do
                 send(n_node, :get_state)
                 replica = wait_for_state_response(n_node)
-                storages = Map.put(n_node, replica)
+                storages = Map.put(storages, n_node, replica)
                 storages
             else
                 storages
@@ -198,7 +198,7 @@ defmodule FTC do
             if Map.get(storages, n_node) == nil do
                 send(n_node, :get_state)
                 replica = wait_for_state_response(n_node)
-                storages = Map.put(n_node, replica)
+                storages = Map.put(storages, n_node, replica)
                 storages
             else
                 storages
@@ -294,8 +294,8 @@ defmodule FTC do
                     send(
                         x,
                         Server.ChainUpdate.new(
-                            Enum.at(rem(chain_idx + len - 1, len)),
-                            Enum.at(rem(chain_idx + 1, len))
+                            Enum.at(state.nodes, rem(chain_idx + len - 1, len)),
+                            Enum.at(state.nodes, rem(chain_idx + 1, len))
                         )
                     )
                 end)
@@ -384,7 +384,7 @@ defmodule GNB do
                 gNB(state)
 
             # need to ask for the chain entry
-            {node, {:not_entry, nonce}} ->
+            {_node, {:not_entry, nonce}} ->
                 state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
                 send(orch, :request_for_head)
                 state = %{state | current_head: :waiting, nonce_to_send: nonce}
@@ -396,7 +396,7 @@ defmodule GNB do
                 gNB(state)
 
             # response from buffer
-            {node, {:done, nonce, updated_header}} ->
+            {_node, {:done, nonce, updated_header}} ->
                 # do nothing if the corresponding message is dropped earlier
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
@@ -443,7 +443,7 @@ defmodule GNB do
                     :waiting ->
                         gNB(state)
                 
-                    node ->
+                    _node ->
                         send_messages(state)
                         state = %{state | nonce_to_send: state.nonce_to_send + 1}
                         gNB(state)
