@@ -159,6 +159,7 @@ defmodule FTC.Server do
     @spec become_nf_node(%Server{}) :: no_return()
     def become_nf_node(state) do
         state = %{state | in_use: true}
+        send(state.orchestrator, :heartbeat)
         reset_heartbeat_timer(state)
         nf_node(state, nil)
     end
