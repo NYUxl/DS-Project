@@ -137,14 +137,18 @@ defmodule FTC.Server do
                 state = add_forwarder(state, is_first)
                 state = add_buffer(state, is_last)
                 become_nf_node(state)
+
+            # Messages for testing
+            {sender, {:master_get, key}} ->
+                send(sender, Map.get(state, key))
+                server(state)
             
             # Messages from clients
             {sender, message} ->
                 # should redirect the client to the orchestrator to
                 # ask for the first node inside the chain
                 send(sender, {:not_entry, message})
-
-            # Messages for testing
+                server(state)
 
             # Default entry
             _ ->
@@ -378,6 +382,14 @@ defmodule FTC.Server do
             {^orch, :pause} ->
                 paused_node(state, %{prev_hop: state.prev_hop, next_hop: state.next_hop, message_list: []})
 
+            # Messages for testing
+            {sender, {:master_get, key}} ->
+                send(sender, Map.get(state, key))
+                nf_node(state, extra_state)
+            
+            {sender, :master_terminate} ->
+                become_server(state)
+
             # Heartbeat timer, send a heartbeat to the orchestrator
             :timer_heartbeat ->
                 send(orch, :heartbeat)
@@ -469,8 +481,6 @@ defmodule FTC.Server do
                     nf_node(state, extra_state)
                 end
 
-            # Messages for testing
-
             # Default entry
             _ ->
                 nf_node(state, extra_state)
@@ -508,6 +518,15 @@ defmodule FTC.Server do
                 extra_state = %{extra_state | prev_hop: prev_hop, next_hop: next_hop}
                 paused_node(state, extra_state)
 
+            # Messages for testing
+            {sender, {:master_get, key}} ->
+                send(sender, Map.get(state, key))
+                paused_node(state, extra_state)
+            
+            {sender, {:master_get_extra, key}} ->
+                send(sender, Map.get(extra_state, key))
+                paused_node(state, extra_state)
+
             # Heartbeat timer, send a heartbeat to the orchestrator
             :timer_heartbeat ->
                 send(orch, :heartbeat)
@@ -523,8 +542,6 @@ defmodule FTC.Server do
             {sender, msg} ->
                 extra_state = %{extra_state | message_list: extra_state.message_list ++ [{sender, msg}]}
                 paused_node(state, extra_state)
-
-            # Messages for testing
 
             # Default entry
             _ ->

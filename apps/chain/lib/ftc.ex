@@ -149,7 +149,7 @@ defmodule FTC do
 
     @spec alive_or_prev(list(atom()), list(atom()), non_neg_integer()) :: non_neg_integer()
     def alive_or_prev(chain, deads, idx) do
-        if Enum.find(deads, Enum.at(chain, idx)) do
+        if Enum.find(deads, fn v -> v == Enum.at(chain, idx) end) do
             alive_or_prev(chain, deads, rem(idx + length(chain) - 1, length(chain)))
         else
             idx
@@ -158,7 +158,7 @@ defmodule FTC do
 
     @spec alive_or_next(list(atom()), list(atom()), non_neg_integer()) :: non_neg_integer()
     def alive_or_next(chain, deads, idx) do
-        if Enum.find(deads, Enum.at(chain, idx)) do
+        if Enum.find(deads, fn v -> v == Enum.at(chain, idx) end) do
             alive_or_next(chain, deads, rem(idx + 1, length(chain)))
         else
             idx
@@ -252,10 +252,14 @@ defmodule FTC do
         # other than the dead ones, but it is ok to assume that they are still usable
         avail_nodes = state.view -- state.nodes ++ dead_nodes
         selected_nodes = Enum.take_random(avail_nodes, length(dead_nodes))
-        new_nodes = Enum.map_reduce(
+        new_nodes = Enum.reduce(
             Range.new(0, length(dead_nodes) - 1), 
             state.nodes, 
-            fn x, acc -> List.replace_at(acc, Enum.find_index(acc, Enum.at(dead_nodes, x)), Enum.at(selected_nodes, x)) end
+            fn x, acc -> List.replace_at(
+                acc, 
+                Enum.find_index(acc, fn n -> n == Enum.at(dead_nodes, x) end), 
+                Enum.at(selected_nodes, x)
+            ) end
         )
         state = fix_node_at(state, dead_nodes, new_nodes, %{}, 0)
         state
@@ -306,6 +310,11 @@ defmodule FTC do
             # the chain head query from the gNB
             {sender, :request_for_head} ->
                 send(sender, {:current_head, hd(state.nodes)})
+                orchestrator(state, extra_state)
+            
+            # for testing
+            {sender, :master_get_nodes} ->
+                send(sender, state.nodes)
                 orchestrator(state, extra_state)
         end
     end
@@ -459,7 +468,7 @@ defmodule FTC.UE do
     User equipment. Send message to the assigned gNB
     """
     alias __MODULE__
-    
+
     import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
 
     import Kernel,
@@ -470,8 +479,8 @@ defmodule FTC.UE do
         gnb: nil
     )
 
-    @spec new_client(atom(), atom()) :: %UE{}
-    def new_client(id, gnb) do
+    @spec new_ue(atom(), atom()) :: %UE{}
+    def new_ue(id, gnb) do
         %UE{
             id: id,
             gnb: gnb

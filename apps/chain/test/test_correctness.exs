@@ -13,8 +13,8 @@ defmodule FTCTest do
             FTC.Server.become_server(
                 FTC.Server.new_configuration(
                     :orch,
-                    10_000,
-                    1000
+                    1000,
+                    500
                 )
             )
         end)
@@ -28,20 +28,146 @@ defmodule FTCTest do
             [:a, :b, :c, :d, :e],
             [:amf, :ausf, :smf, :upf],
             3,
-            100_000
+            3000
         )
 
-        a = spawn_server(:a)
-        b = spawn_server(:b)
-        c = spawn_server(:c)
-        d = spawn_server(:d)
-        e = spawn_server(:e)
+        spawn_server(:a)
+        spawn_server(:b)
+        spawn_server(:c)
+        spawn_server(:d)
+        spawn_server(:e)
 
-        orch = spawn(:orch, fn -> FTC.start(base_config) end)
-        gnb = spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
+        spawn(:orch, fn -> FTC.start(base_config) end)
+        spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
         client = spawn(:client, fn ->
-            client = FTC.UE.new_client(:client, :gnb)
+            u1 = FTC.UE.new_ue(:u1, :gnb)
+
+            receive do
+            after
+            10000 -> true
+            end
+        end)
+
+        handle = Process.monitor(client)
+        # Timeout.
+        receive do
+            {:DOWN, ^handle, _, _, _} -> true
+        after
+        30000 -> assert false
+        end
+    after
+        Emulation.terminate()
+    end
+
+    @spec get_assigned(atom()) :: list(atom())
+    def get_assigned(orch) do
+        send(orch, :master_get_nodes)
+        receive do
+            {^orch, assigned} ->
+                assigned
+            
+            _ ->
+                []
+        end
+    end
+
+    @spec get_from_node(atom(), atom()) :: any()
+    def get_from_node(node, key) do
+        send(node, {:master_get, key})
+        receive do
+            {^node, ret} ->
+                ret
+            
+            _ ->
+                nil
+        end
+    end
+
+    test "Consistency when start-up" do
+        Emulation.init()
+        Emulation.append_fuzzers([Fuzzers.delay(2)])
+        
+        view = [:a, :b, :c, :d, :e]
+        chain = [:amf, :ausf, :smf, :upf]
+
+        base_config = FTC.new_configuration(
+            view,
+            chain,
+            3,
+            3000
+        )
+
+        spawn_server(:a)
+        spawn_server(:b)
+        spawn_server(:c)
+        spawn_server(:d)
+        spawn_server(:e)
+
+        spawn(:orch, fn -> FTC.start(base_config) end)
+        spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
+
+        client = spawn(:client, fn ->
+            u1 = FTC.UE.new_ue(:u1, :gnb)
+            
+            assigned = get_assigned(:orch)
+            assert (assigned != [])
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
+            cnt_false = Enum.count(Map.values(Map.take(in_use, assigned)), fn x -> x == false end)
+            assert (cnt_false == 0)
+
+            receive do
+            after
+            1_000 -> :ok
+            end
+
+            functions = Enum.map(view, fn x ->
+                {x, get_from_node(x, :nf_name)}
+            end)
+            gt = Enum.map(Range.new(0, length(chain) - 1), fn x ->
+                {Enum.at(assigned, x), Enum.at(chain, x)}
+            end)
+            assert (Map.equal?(Map.take(Map.new(functions), assigned), Map.new(gt)))
+        end)
+
+        handle = Process.monitor(client)
+        # Timeout.
+        receive do
+            {:DOWN, ^handle, _, _, _} -> true
+        after
+        30_000 -> assert false
+        end
+    after
+        Emulation.terminate()
+    end
+    
+    test "Recovery works without traffic" do
+        Emulation.init()
+        Emulation.append_fuzzers([Fuzzers.delay(2)])
+
+        base_config = FTC.new_configuration(
+            [:a, :b, :c, :d, :e],
+            [:amf, :ausf, :smf, :upf],
+            3,
+            5000
+        )
+
+        spawn_server(:a)
+        spawn_server(:b)
+        spawn_server(:c)
+        spawn_server(:d)
+        spawn_server(:e)
+
+        spawn(:orch, fn -> FTC.start(base_config) end)
+        spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
+
+        client = spawn(:client, fn ->
+            u1 = FTC.UE.new_ue(:u1, :gnb)
 
             receive do
             after
