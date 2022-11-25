@@ -225,7 +225,7 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(%Server{}, %Message{}) :: {%Server{}, %Message{}, list(%StateUpdate{})}
+    @spec nf_process(%Server{}, %Message{}) :: {%Server{}, %Message{}, list(%NF.StateUpdate{})}
     def nf_process(state, msg) do
         case state.nf_name do
             :amf ->
@@ -236,12 +236,12 @@ defmodule Server do
                     nil ->
                         IO.puts("No record. Update to register.")
                         state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
-                        {state, msg, [%StateUpdate{action: "insert", key: ue_id, value: 1}]}
+                        {state, msg, [NF.StateUpdate.new("insert", ue_id, 1)]}
                         
                     0 ->
                         IO.puts("Update de-registered to register.")
                         state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
-                        {state, msg, [%StateUpdate{action: "modify", key: ue_id, value: 1}]}
+                        {state, msg, [NF.StateUpdate.new("modify", ue_id, 1)]}
                         
                     1 -> 
                         IO.puts("Already registered.")
@@ -261,7 +261,7 @@ defmodule Server do
                     {subscriber, 0} ->
                         IO.puts("Successfully authenticate. Update authentication status.")
                         Map.put(state.nf_state, ue_id, {subscriber, 1})
-                        {state, msg, [%StateUpdate{action: "modify", key: ue_id, value: 1}]}
+                        {state, msg, [NF.StateUpdate.new("modify", ue_id, 1)]}
 
                     {subscriber, 1} ->
                         IO.puts("Successfully authenticate.")
@@ -295,8 +295,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
-                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list}
 
                         "mint" ->
@@ -311,8 +311,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
-                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list}
 
                         "at&t" ->
@@ -327,8 +327,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
-                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list} 
 
                         _ ->
@@ -338,15 +338,16 @@ defmodule Server do
 
             :upf ->
                 # traffic statistic
+                ue_id = msg.header.ue
                 src_ip = msg.header.src_ip
                 IO.puts("Update total number of packets from src_ip.")
                 cnt = Map.get(state.nf_state, ue_id)
                 if cnt == nil do
                     updated_nf_state = Map.put(state.nf_state, src_ip, 1)
-                    {state, msg, [%StateUpdate{action: "insert", key: src_ip, value: 1}]}
+                    {state, msg, [NF.StateUpdate.new("insert", src_ip, 1)]}
                 else
                     updated_nf_state = Map.put(state.nf_state, src_ip, cnt + 1)
-                    {state, msg, [%StateUpdate{action: "modify", key: src_ip, value: cnt + 1}]}
+                    {state, msg, [NF.StateUpdate.new("modify", src_ip, cnt + 1)]}
                 end
         end  
     
@@ -366,17 +367,19 @@ defmodule Server do
 
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
+        orch = state.orchestrator
+        p_hop = state.prev_hop
         receive do
             # Control message from orchestrator
-            {^state.orchestrator, :terminate} -> 
+            {^orch, :terminate} -> 
                 become_server(state)
 
-            {^state.orchestrator, :pause} ->
+            {^orch, :pause} ->
                 paused_node(state, %{prev_hop: state.prev_hop, next_hop: state.next_hop, message_list: []})
 
             # Heartbeat timer, send a heartbeat to the orchestrator
             :timer_heartbeat ->
-                send(orchestrator, :heartbeat)
+                send(orch, :heartbeat)
                 reset_heartbeat_timer(state)
                 nf_node(state, extra_state)
             
@@ -396,7 +399,7 @@ defmodule Server do
                 end
 
             # Message from previous hop
-            {^state.prev_hop, {:empty, piggyback_logs, commit_vectors}} ->
+            {^p_hop, {:empty, piggyback_logs, commit_vectors}} ->
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
@@ -409,7 +412,7 @@ defmodule Server do
                 send(state.next_hop, {:empty, piggyback_logs, commit_vectors})
                 nf_node(state, extra_state)
 
-            {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
+            {^p_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
@@ -422,7 +425,7 @@ defmodule Server do
                 state = %{state | forwarder: state.forwarder ++ [{piggyback_logs, commit_vectors}]}
                 nf_node(state, extra_state)
 
-            {^state.prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
+            {^p_hop, {msg, piggyback_logs, commit_vectors}} -> 
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
@@ -478,17 +481,18 @@ defmodule Server do
     """
     @spec paused_node(%Server{}, map()) :: no_return()
     def paused_node(state, extra_state) do
+        orch = state.orchestrator
         receive do
             # Control message from orchestrator
-            {^state.orchestrator, :terminate} -> 
+            {^orch, :terminate} -> 
                 become_server(state)
 
-            {^state.orchestrator, :resume} ->
+            {^orch, :resume} ->
                 back_to_nf_node(state, extra_state)
 
-            {^state.orchestrator, :get_state} ->
+            {^orch, :get_state} ->
                 send(
-                    state.orchestrator,
+                    orch,
                     Server.StateResponse.new(
                         state.id,
                         state.replica_storage
@@ -496,7 +500,7 @@ defmodule Server do
                 )
                 paused_node(state, extra_state)
             
-            {^state.orchestrator, %Server.ChainUpdate{
+            {^orch, %Server.ChainUpdate{
                 prev_hop: prev_hop,
                 next_hop: next_hop
              }} ->
@@ -505,7 +509,7 @@ defmodule Server do
 
             # Heartbeat timer, send a heartbeat to the orchestrator
             :timer_heartbeat ->
-                send(orchestrator, :heartbeat)
+                send(orch, :heartbeat)
                 reset_heartbeat_timer(state)
                 paused_node(state, extra_state)
             
@@ -532,6 +536,7 @@ defmodule Server do
     """
     @spec back_to_nf_node(%Server{}, map()) :: no_return()
     def back_to_nf_node(state, extra_state) do
+        p_hop = state.prev_hop
         if length(extra_state.message_list) == 0 do
             state = %{state | prev_hop: extra_state.prev_hop, next_hop: extra_state.next_hop}
             nf_node(state, nil)
@@ -540,7 +545,7 @@ defmodule Server do
             extra_state = %{extra_state | message_list: tl(extra_state.message_list)}
             case next_msg do
                 # Message from previous hop
-                {^state.prev_hop, {:empty, piggyback_logs, commit_vectors}} ->
+                {^p_hop, {:empty, piggyback_logs, commit_vectors}} ->
                     # update replica
                     updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                     state = %{state | replica_storage: updated_storage}
@@ -553,7 +558,7 @@ defmodule Server do
                     send(extra_state.next_hop, {:empty, piggyback_logs, commit_vectors})
                     back_to_nf_node(state, extra_state)
 
-                {^state.prev_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
+                {^p_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
                     # update replica
                     updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                     state = %{state | replica_storage: updated_storage}
@@ -566,7 +571,7 @@ defmodule Server do
                     state = %{state | forwarder: state.forwarder ++ [{piggyback_logs, commit_vectors}]}
                     back_to_nf_node(state, extra_state)
 
-                {^state.prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
+                {^p_hop, {msg, piggyback_logs, commit_vectors}} -> 
                     # update replica
                     updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                     state = %{state | replica_storage: updated_storage}

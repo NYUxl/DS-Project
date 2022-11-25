@@ -129,7 +129,7 @@ defmodule Server.MessageResponse do
     """
     alias __MODULE__
     defstruct(
-        header: %{ue: ue, pid: pid},
+        header: %{ue: nil, pid: nil},
         response: nil
     )
 
@@ -160,4 +160,13 @@ defmodule NF.StateUpdate do
         key: nil,
         value: nil
     )
+
+    @spec new(string(), any(), non_neg_integer()) :: %StateUpdate{}
+    def new(action, key, value) do
+        %StateUpdate{
+            action: action,
+            key: key,
+            value: value
+        }
+    end
 end

@@ -316,6 +316,11 @@ defmodule GNB do
     gNB for 5G infrastructure. Forward the message to the forwarder to enter
     the chain
     """
+    import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
+
+    import Kernel,
+        except: [spawn: 3, spawn: 1, spawn_link: 1, spawn_link: 3, send: 2]
+
     defstruct(
         id: nil,
         orchestrator: nil,
@@ -328,7 +333,7 @@ defmodule GNB do
         # if some message got no response for long time, we should return fail
         expire_thres: nil,
         buffer: nil,
-        current_dealer: nil
+        current_head: nil
     )
 
     @retry_timeout 1000
@@ -369,9 +374,10 @@ defmodule GNB do
 
     @spec gNB(%GNB{}) :: no_return()
     def gNB(state) do
+        orch = state.orchestrator
         receive do
             # message from orchestrator for current chain head
-            {^state.orchestrator, {:current_head, dealer}} ->
+            {^orch, {:current_head, dealer}} ->
                 Emulation.cancel_timer(state.wait_timer)
                 state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
@@ -380,13 +386,13 @@ defmodule GNB do
             # need to ask for the chain entry
             {node, {:not_entry, nonce}} ->
                 state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
-                send(state.orchestrator, :request_for_head)
+                send(orch, :request_for_head)
                 state = %{state | current_head: :waiting, nonce_to_send: nonce}
                 gNB(state)
             
             :timer ->
                 state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
-                send(state.orchestrator, :request_for_head)
+                send(orch, :request_for_head)
                 gNB(state)
 
             # response from buffer
@@ -430,7 +436,7 @@ defmodule GNB do
                 # for the first message, ask the orchestrator about the chain entry
                 case state.current_head do
                     nil ->
-                        send(state.orchestrator, :request_for_head)
+                        send(orch, :request_for_head)
                         state = %{state | current_head: :waiting}
                         gNB(state)
                     
@@ -450,6 +456,11 @@ defmodule UE do
     @moduledoc """
     User equipment. Send message to the assigned gNB
     """
+    import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
+
+    import Kernel,
+        except: [spawn: 3, spawn: 1, spawn_link: 1, spawn_link: 3, send: 2]
+
     defstruct(
         id: nil,
         gnb: nil
