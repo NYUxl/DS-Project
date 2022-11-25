@@ -41,7 +41,7 @@ defmodule FTCTest do
         gnb = spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
         client = spawn(:client, fn ->
-            client = UE.new_client(:client, :gnb)
+            client = FTC.UE.new_client(:client, :gnb)
 
             receive do
             after
