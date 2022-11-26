@@ -208,6 +208,7 @@ defmodule FTC do
 
     @spec fix_node_at(%FTC{}, list(atom()), list(atom()), map(), non_neg_integer()) :: %FTC{}
     def fix_node_at(state, dead_nodes, new_nodes, storages, idx) do
+        IO.puts("fix node at #{idx} in the dead node list")
         if idx < length(dead_nodes) do
             # nodes before idx are fixed, now to fix idx-th node
             # retrieve the state and restore the node
@@ -218,7 +219,7 @@ defmodule FTC do
             next_idx = alive_or_next(state.nodes, dead_nodes, rem(chain_idx + 1, len))
             next_node = Enum.at(state.nodes, next_idx)
             # pull some state if needed
-            storages = update_storages(storages, prev_idx, next_idx)
+            storages = update_storages(storages, prev_node, next_node)
             # reconstruct the replica state
             reconstructed_replica_1 = Enum.drop(Map.get(storages, next_node), rem(next_idx + len - chain_idx, len))
             reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), rem(chain_idx + len - prev_idx, len))
@@ -269,11 +270,13 @@ defmodule FTC do
     def orchestrator(state, extra_state) do
         receive do
             # heartbeat message from a node
-            {sender, {:heartbeat}} -> 
+            {sender, :heartbeat} -> 
+                # IO.puts("#{whoami()}(orchestrator): heartbeat received from #{sender}")
                 extra_state = Map.put(extra_state, sender, 1)
                 if Enum.any?(Map.values(extra_state), fn x -> x == 0 end) do
                     orchestrator(state, extra_state)
                 else
+                    # IO.puts("Reset liveness timer")
                     state = reset_live_timer(state)
                     orchestrator(state, reset_extra_state(state))
                 end
@@ -283,7 +286,9 @@ defmodule FTC do
             # 2. recreate an instance and restore the state
             # 3. continue the process
             :timer ->
+                IO.puts("#{whoami()}(orchestrator): timer received, some node died")
                 dead_nodes = Enum.filter(state.nodes, fn x -> Map.get(extra_state, x) == 0 end)
+                IO.puts("Dead nodes list length: #{length(dead_nodes)}")
                 alive_nodes = Enum.filter(state.nodes, fn x -> Map.get(extra_state, x) == 1 end)
                 # to make sure the node is terminated
                 Enum.map(dead_nodes, fn x -> send(x, :terminate) end)

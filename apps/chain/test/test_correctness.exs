@@ -109,6 +109,11 @@ defmodule FTCTest do
 
         client = spawn(:client, fn ->
             u1 = FTC.UE.new_ue(:u1, :gnb)
+
+            receive do
+            after
+            1_000 -> true
+            end
             
             assigned = get_assigned(:orch)
             assert (assigned != [])
@@ -149,12 +154,15 @@ defmodule FTCTest do
     test "Recovery works without traffic" do
         Emulation.init()
         Emulation.append_fuzzers([Fuzzers.delay(2)])
+        
+        view = [:a, :b, :c, :d, :e]
+        chain = [:amf, :ausf, :smf, :upf]
 
         base_config = FTC.new_configuration(
-            [:a, :b, :c, :d, :e],
-            [:amf, :ausf, :smf, :upf],
+            view,
+            chain,
             3,
-            5000
+            3000
         )
 
         spawn_server(:a)
@@ -171,8 +179,28 @@ defmodule FTCTest do
 
             receive do
             after
-            5_000 -> true
+            1_000 -> true
             end
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
+
+            assigned = get_assigned(:orch)
+            send(Enum.at(assigned, 0), :master_terminate)
+
+            receive do
+            after
+            10_000 -> true
+            end
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
         end)
 
         handle = Process.monitor(client)

@@ -125,6 +125,7 @@ defmodule FTC.Server do
                 is_first: is_first,
                 is_last: is_last
              }} ->
+                IO.puts("#{whoami()}(server): NewInstance received, turn to nf_node")
                 state = %{state | 
                             nf_name: nf,
                             nf_state: hd(replica_storage),
@@ -140,6 +141,7 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
+                IO.puts("#{whoami()}(server): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 server(state)
             
@@ -378,17 +380,21 @@ defmodule FTC.Server do
         receive do
             # Control message from orchestrator
             {^orch, :terminate} -> 
+                IO.puts("#{whoami()}(nf_node): terminate received, turn to server")
                 become_server(state)
 
             {^orch, :pause} ->
+                IO.puts("#{whoami()}(nf_node): pause received, turn to paused_node")
                 paused_node(state, %{prev_hop: state.prev_hop, next_hop: state.next_hop, message_list: []})
 
             # Messages for testing
             {sender, {:master_get, key}} ->
+                IO.puts("#{whoami()}(nf_node): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 nf_node(state, extra_state)
             
             {sender, :master_terminate} ->
+                IO.puts("#{whoami()}(nf_node): master_terminate received, turn to server")
                 become_server(state)
 
             # Heartbeat timer, send a heartbeat to the orchestrator
@@ -496,13 +502,16 @@ defmodule FTC.Server do
         orch = state.orchestrator
         receive do
             # Control message from orchestrator
-            {^orch, :terminate} -> 
+            {^orch, :terminate} ->
+                IO.puts("#{whoami()}(paused_node): terminate received, turn to server") 
                 become_server(state)
 
             {^orch, :resume} ->
+                IO.puts("#{whoami()}(paused_node): resume received, turn to nf_node")
                 back_to_nf_node(state, extra_state)
 
             {^orch, :get_state} ->
+                IO.puts("#{whoami()}(paused_node): get_state received, return state") 
                 send(
                     orch,
                     FTC.StateResponse.new(
@@ -516,15 +525,18 @@ defmodule FTC.Server do
                 prev_hop: prev_hop,
                 next_hop: next_hop
              }} ->
+                IO.puts("#{whoami()}(paused_node): ChainUpdate received, update prev/next hop") 
                 extra_state = %{extra_state | prev_hop: prev_hop, next_hop: next_hop}
                 paused_node(state, extra_state)
 
             # Messages for testing
             {sender, {:master_get, key}} ->
+                IO.puts("#{whoami()}(paused_node): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 paused_node(state, extra_state)
             
             {sender, {:master_get_extra, key}} ->
+                IO.puts("#{whoami()}(paused_node): master_get_extra received, return #{key}")
                 send(sender, Map.get(extra_state, key))
                 paused_node(state, extra_state)
 
