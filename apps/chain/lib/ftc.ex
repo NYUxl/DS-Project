@@ -485,7 +485,9 @@ defmodule FTC.UE do
         # subscriber
         sub: nil,
         # ip address
-        ip: nil
+        ip: nil,
+        # pid: counter
+        pid: nil
     )
 
     @spec new_ue(atom(), atom(), string()) :: %UE{}
@@ -496,5 +498,25 @@ defmodule FTC.UE do
             sub: sub,
             ip: nil
         }
+    end
+
+    @spec ue(%UE{}) :: no_return()
+    def ue(state) do
+        receive do
+            # Messages for testing
+            {sender, {:master_get, key}} ->
+                IO.puts("#{whoami()}(ue): master_get received, return #{key}")
+                send(sender, Map.get(state, key))
+                ue(state)
+            
+            {sender, :master_send_req} ->
+                IO.puts("#{whoami()}(ue): master_send_req received, send registration request")
+                send(
+                    state.gnb,
+                    FTC.Message.new(
+
+                    )
+                )
+        end
     end
 end
