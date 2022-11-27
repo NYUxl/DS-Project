@@ -21,13 +21,39 @@ defmodule FTCTest do
         end)
     end
 
+    @spec spawn_ue(atom(), atom(), string()) :: no_return()
+    def spawn_ue(a, gnb, sub) do
+        spawn(a, fn ->
+            FTC.UE.ue(
+                FTC.UE.new_ue(
+                    a,
+                    gnb,
+                    sub
+                )
+            )
+        end)
+    end
+
+    @spec spawn_ues(list(atom()), atom(), list(string())) :: no_return()
+    def spawn_ues(ues, gnb, subs) do
+        if not Enum.empty?(ues) do
+            spawn_ue(hd(ues), gnb, hd(subs))
+            spawn_ues(tl(ues), gnb, tl(subs))
+        end
+    end
+
     test "Nothing crashes during startup and heartbeats" do
         Emulation.init()
         Emulation.append_fuzzers([Fuzzers.delay(2)])
+        
+        view = [:a, :b, :c, :d, :e]
+        chain = [:amf, :ausf, :smf, :upf]
+        ues = [:u1]
+        subs = ["verizon"]
 
         base_config = FTC.new_configuration(
-            [:a, :b, :c, :d, :e],
-            [:amf, :ausf, :smf, :upf],
+            view,
+            chain,
             3,
             3000
         )
@@ -41,16 +67,16 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
-        client = spawn(:client, fn ->
-            u1 = FTC.UE.new_ue(:u1, :gnb)
+        spawn_ues(ues, :gnb, subs)
 
+        master = spawn(:master, fn ->
             receive do
             after
             10000 -> true
             end
         end)
 
-        handle = Process.monitor(client)
+        handle = Process.monitor(master)
         # Timeout.
         receive do
             {:DOWN, ^handle, _, _, _} -> true
@@ -91,6 +117,8 @@ defmodule FTCTest do
         
         view = [:a, :b, :c, :d, :e]
         chain = [:amf, :ausf, :smf, :upf]
+        ues = [:u1]
+        subs = ["verizon"]
 
         base_config = FTC.new_configuration(
             view,
@@ -108,14 +136,16 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
-        master = spawn(:master, fn ->
-            u1 = FTC.UE.new_ue(:u1, :gnb)
+        spawn_ues(ues, :gnb, subs)
 
+        master = spawn(:master, fn ->
+            # Some time to settle down
             receive do
             after
             1_000 -> true
             end
             
+            # Nodes in use are active
             assigned = get_assigned(:orch)
             assert (assigned != [])
 
@@ -132,6 +162,7 @@ defmodule FTCTest do
             1_000 -> :ok
             end
 
+            # Each server gets the correct NF
             functions = Enum.map(view, fn x ->
                 {x, get_from_node(x, :nf_name)}
             end)
@@ -150,27 +181,6 @@ defmodule FTCTest do
         end
     after
         Emulation.terminate()
-    end
-
-    @spec spawn_ue(atom(), atom(), string()) :: no_return()
-    def spawn_ue(a, gnb, sub) do
-        spawn(a, fn ->
-            FTC.UE.ue(
-                FTC.UE.new_ue(
-                    a,
-                    gnb,
-                    sub
-                )
-            )
-        end)
-    end
-
-    @spec spawn_ues(list(atom()), atom(), list(string())) :: no_return()
-    def spawn_ues(ues, gnb, subs) do
-        if not Enum.empty?(ues) do
-            spawn_ue(hd(ues), gnb, hd(subs))
-            spawn_ues(tl(ues), gnb, tl(subs))
-        end
     end
 
     test "NF functions correctly" do
@@ -246,6 +256,8 @@ defmodule FTCTest do
         
         view = [:a, :b, :c, :d, :e]
         chain = [:amf, :ausf, :smf, :upf]
+        ues = [:u1]
+        subs = ["verizon"]
 
         base_config = FTC.new_configuration(
             view,
@@ -263,9 +275,9 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
-        master = spawn(:master, fn ->
-            u1 = FTC.UE.new_ue(:u1, :gnb)
+        spawn_ues(ues, :gnb, subs)
 
+        master = spawn(:master, fn ->
             receive do
             after
             1_000 -> true
