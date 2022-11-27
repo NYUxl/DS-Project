@@ -364,7 +364,7 @@ defmodule FTC.GNB do
             nonce: 1,
             nonce_to_send: 1,
             expire_thres: thres,
-            buffer: {},
+            buffer: %{},
             current_head: nil
         }
     end
