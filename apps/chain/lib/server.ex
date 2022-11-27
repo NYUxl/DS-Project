@@ -42,10 +42,10 @@ defmodule FTC.Server do
     @doc """
     Create a new server, and can turn to different nf later
     """
-    @spec new_configuration(atom(), non_neg_integer(), non_neg_integer()) :: %Server{}
-    def new_configuration(orchestrator, heartbeat_timeout, nop_timeout) do
+    @spec new_configuration(atom(), atom(), non_neg_integer(), non_neg_integer()) :: %Server{}
+    def new_configuration(id, orchestrator, heartbeat_timeout, nop_timeout) do
         %Server{
-            id: whoami(),
+            id: id,
             orchestrator: orchestrator,
             in_use: false,
             heartbeat_timeout: heartbeat_timeout,
@@ -268,7 +268,7 @@ defmodule FTC.Server do
                 case sb_log do
                     {subscriber, 0} ->
                         IO.puts("Successfully authenticate. Update authentication status.")
-                        Map.put(state.nf_state, ue_id, {subscriber, 1})
+                        state = %{state | nf_state: Map.put(state.nf_state, ue_id, {subscriber, 1})}
                         {state, msg, [FTC.StateUpdate.new("modify", ue_id, 1)]}
 
                     {subscriber, 1} ->

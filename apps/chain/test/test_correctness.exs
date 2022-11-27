@@ -12,9 +12,10 @@ defmodule FTCTest do
         spawn(node, fn -> 
             FTC.Server.become_server(
                 FTC.Server.new_configuration(
+                    node,
                     :orch,
                     1000,
-                    500
+                    200
                 )
             )
         end)
@@ -107,7 +108,7 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
-        client = spawn(:client, fn ->
+        master = spawn(:master, fn ->
             u1 = FTC.UE.new_ue(:u1, :gnb)
 
             receive do
@@ -138,6 +139,74 @@ defmodule FTCTest do
                 {Enum.at(assigned, x), Enum.at(chain, x)}
             end)
             assert (Map.equal?(Map.take(Map.new(functions), assigned), Map.new(gt)))
+        end)
+
+        handle = Process.monitor(master)
+        # Timeout.
+        receive do
+            {:DOWN, ^handle, _, _, _} -> true
+        after
+        30_000 -> assert false
+        end
+    after
+        Emulation.terminate()
+    end
+
+    @spec spawn_ue(atom(), string()) :: no_return()
+    def spawn_ue(a, sub) do
+
+    end
+
+    test "NF functions correctly" do
+        Emulation.init()
+        Emulation.append_fuzzers([Fuzzers.delay(2)])
+        
+        view = [:a, :b, :c, :d, :e]
+        chain = [:amf, :ausf, :smf, :upf]
+
+        base_config = FTC.new_configuration(
+            view,
+            chain,
+            3,
+            3000
+        )
+
+        spawn_server(:a)
+        spawn_server(:b)
+        spawn_server(:c)
+        spawn_server(:d)
+        spawn_server(:e)
+
+        spawn(:orch, fn -> FTC.start(base_config) end)
+        spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
+
+        master = spawn(:master, fn ->
+            u1 = FTC.UE.new_ue(:u1, :gnb)
+
+            receive do
+            after
+            1_000 -> true
+            end
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
+
+            assigned = get_assigned(:orch)
+            send(Enum.at(assigned, 0), :master_terminate)
+
+            receive do
+            after
+            10_000 -> true
+            end
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
         end)
 
         handle = Process.monitor(client)
@@ -174,7 +243,7 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
-        client = spawn(:client, fn ->
+        master = spawn(:master, fn ->
             u1 = FTC.UE.new_ue(:u1, :gnb)
 
             receive do
@@ -203,7 +272,7 @@ defmodule FTCTest do
             assert (cnt_false == 1)
         end)
 
-        handle = Process.monitor(client)
+        handle = Process.monitor(master)
         # Timeout.
         receive do
             {:DOWN, ^handle, _, _, _} -> true

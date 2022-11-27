@@ -481,14 +481,20 @@ defmodule FTC.UE do
 
     defstruct(
         id: nil,
-        gnb: nil
+        gnb: nil,
+        # subscriber
+        sub: nil,
+        # ip address
+        ip: nil
     )
 
-    @spec new_ue(atom(), atom()) :: %UE{}
-    def new_ue(id, gnb) do
+    @spec new_ue(atom(), atom(), string()) :: %UE{}
+    def new_ue(id, gnb, sub) do
         %UE{
             id: id,
-            gnb: gnb
+            gnb: gnb,
+            sub: sub,
+            ip: nil
         }
     end
 end
