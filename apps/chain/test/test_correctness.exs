@@ -167,6 +167,10 @@ defmodule FTCTest do
 
     @spec spawn_ues(list(atom()), atom(), list(string())) :: no_return()
     def spawn_ues(ues, gnb, subs) do
+        if not Enum.empty?(ues) do
+            spawn_ue(hd(ues), gnb, hd(subs))
+            spawn_ues(tl(ues), gnb, tl(subs))
+        end
     end
 
     test "NF functions correctly" do
