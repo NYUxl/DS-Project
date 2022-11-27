@@ -290,7 +290,7 @@ defmodule FTCTest do
             assert (cnt_false == 1)
 
             assigned = get_assigned(:orch)
-            send(Enum.at(assigned, 0), :master_terminate)
+            send(Enum.take_random(assigned, 1), :master_terminate)
 
             receive do
             after

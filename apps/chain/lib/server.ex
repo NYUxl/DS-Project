@@ -410,6 +410,7 @@ defmodule FTC.Server do
                 if Enum.empty?(state.forwarder) do
                     nf_node(state, extra_state)
                 else
+                    IO.puts("#{whoami()}(nf_node, #{state.nf_name}): timer_nop received, send empty to #{state.next_hop}")
                     {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0)
                     state = %{state | forwarder: new_forwarder}
 
