@@ -141,7 +141,7 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(server): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(server): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 server(state)
             
@@ -389,12 +389,12 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 nf_node(state, extra_state)
             
             {sender, :master_terminate} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_terminate received, turn to server")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_terminate received, turn to server")
                 become_server(state)
 
             # Heartbeat timer, send a heartbeat to the orchestrator
@@ -544,12 +544,12 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(paused_node): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(paused_node): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 paused_node(state, extra_state)
             
             {sender, {:master_get_extra, key}} ->
-                IO.puts("#{whoami()}(paused_node): master_get_extra received, return #{key}")
+                # IO.puts("#{whoami()}(paused_node): master_get_extra received, return #{key}")
                 send(sender, Map.get(extra_state, key))
                 paused_node(state, extra_state)
 

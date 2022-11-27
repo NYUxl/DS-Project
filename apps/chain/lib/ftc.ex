@@ -423,7 +423,8 @@ defmodule FTC.GNB do
                 {req_sender, message} = Map.get(state.buffer, nonce)
                 send(req_sender, FTC.MessageResponse.succ(message.header.ue, message.header.pid, updated_header))
 
-                state = %{state | buffer: Map.pop(state.buffer, nonce)}
+
+                state = %{state | buffer: Map.delete(state.buffer, nonce)}
                 nonces = Enum.filter(Map.keys(state.buffer), fn x -> x < state.nonce - state.expire_thres end)
                 if Enum.empty?(nonces) do
                     gNB(state)
