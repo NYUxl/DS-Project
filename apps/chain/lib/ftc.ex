@@ -496,7 +496,8 @@ defmodule FTC.UE do
             id: id,
             gnb: gnb,
             sub: sub,
-            ip: nil
+            ip: nil,
+            pid: 0
         }
     end
 
@@ -524,15 +525,26 @@ defmodule FTC.UE do
                         "#{whoami()} requests for ip"
                     )
                 )
-                ue(state)
+                ue(%{state | pid: state.pid + 1})
             
             # Messages from gNB
             {^gnb, 
              %FTC.MessageResponse{
                 header: %{ue: ^id, pid: pid},
-                response:
-             }}
-
+                response: {:succ, updated_header}
+             }} ->
+                IO.puts("#{whoami()}(ue): MessageResponse received")
+                if pid < state.pid do
+                    IO.puts("#{whoami()}(ue): MessageResponse - update ip")
+                    state = %{state | ip: updated_header.src_ip}
+                    ue(state)
+                else
+                    IO.puts("#{whoami()}(ue): MessageResponse - wrong pid")
+                    ue(state)
+                end
+            
+            _ ->
+                ue(state)
         end
     end
 end
