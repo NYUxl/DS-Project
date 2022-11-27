@@ -380,21 +380,21 @@ defmodule FTC.Server do
         receive do
             # Control message from orchestrator
             {^orch, :terminate} -> 
-                IO.puts("#{whoami()}(nf_node): terminate received, turn to server")
+                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): terminate received, turn to server")
                 become_server(state)
 
             {^orch, :pause} ->
-                IO.puts("#{whoami()}(nf_node): pause received, turn to paused_node")
+                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): pause received, turn to paused_node")
                 paused_node(state, %{prev_hop: state.prev_hop, next_hop: state.next_hop, message_list: []})
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(nf_node): master_get received, return #{key}")
+                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 nf_node(state, extra_state)
             
             {sender, :master_terminate} ->
-                IO.puts("#{whoami()}(nf_node): master_terminate received, turn to server")
+                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_terminate received, turn to server")
                 become_server(state)
 
             # Heartbeat timer, send a heartbeat to the orchestrator
@@ -429,6 +429,8 @@ defmodule FTC.Server do
                 # update piggyback
                 piggyback_logs = List.delete_at(piggyback_logs, -1)
                 piggyback_logs = List.insert_at(piggyback_logs, 0, {nil, []})
+
+                
                 send(state.next_hop, {:empty, piggyback_logs, commit_vectors})
                 nf_node(state, extra_state)
 
@@ -472,11 +474,13 @@ defmodule FTC.Server do
             # Messages from clients
             {sender, msg} ->
                 if not state.is_first do
+                    IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{sender}, not entry; prev_hop: #{state.prev_hop}")
                     send(sender, {:not_entry, msg.nonce})
                     nf_node(state, extra_state)
                 else
                     # this is the first nf node
-                    default = {[], Map.new([{state.rep_group, 0}])}
+                    IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{sender}, proceed and send to #{state.next_hop}")
+                    default = {List.duplicate({nil, []}, state.num_of_replications - 1), Map.new([{state.rep_group, 0}])}
                     {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0, default)
                     state = %{state | forwarder: new_forwarder}
                     state = reset_nop_timer(state)
@@ -503,15 +507,15 @@ defmodule FTC.Server do
         receive do
             # Control message from orchestrator
             {^orch, :terminate} ->
-                IO.puts("#{whoami()}(paused_node): terminate received, turn to server") 
+                IO.puts("#{whoami()}(paused_node, #{state.nf_name}): terminate received, turn to server") 
                 become_server(state)
 
             {^orch, :resume} ->
-                IO.puts("#{whoami()}(paused_node): resume received, turn to nf_node")
+                IO.puts("#{whoami()}(paused_node, #{state.nf_name}): resume received, turn to nf_node")
                 back_to_nf_node(state, extra_state)
 
             {^orch, :get_state} ->
-                IO.puts("#{whoami()}(paused_node): get_state received, return state") 
+                IO.puts("#{whoami()}(paused_node, #{state.nf_name}): get_state received, return state") 
                 send(
                     orch,
                     FTC.StateResponse.new(
