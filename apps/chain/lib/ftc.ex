@@ -503,6 +503,8 @@ defmodule FTC.UE do
 
     @spec ue(%UE{}) :: no_return()
     def ue(state) do
+        gnb = state.gnb
+        id = state.id
         receive do
             # Messages for testing
             {sender, {:master_get, key}} ->
@@ -510,14 +512,28 @@ defmodule FTC.UE do
                 send(sender, Map.get(state, key))
                 ue(state)
             
-            {sender, :master_send_req} ->
+            {_sender, :master_send_req} ->
                 IO.puts("#{whoami()}(ue): master_send_req received, send registration request")
                 send(
                     state.gnb,
                     FTC.Message.new(
-                        
+                        state.pid,
+                        state.id,
+                        state.sub,
+                        state.ip,
+                        'dst_ip',
+                        "#{whoami()} requests for ip"
                     )
                 )
+                ue(state)
+            
+            # Messages from gNB
+            {^gnb, 
+             %FTC.MessageResponse{
+                header: %{ue: ^id, pid: pid},
+                response:
+             }}
+
         end
     end
 end

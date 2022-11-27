@@ -112,7 +112,7 @@ defmodule FTC.Message do
     )
 
     # TODO: check the correctness of type
-    @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string(), string()) :: %Message{}
+    @spec new(non_neg_integer(), atom(), string(), any(), any(), string()) :: %Message{}
     def new(pid, ue, sb, src, dst, pload) do
         %Message{
             gnb: nil,

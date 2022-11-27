@@ -179,6 +179,8 @@ defmodule FTCTest do
         
         view = [:a, :b, :c, :d, :e]
         chain = [:amf, :ausf, :smf, :upf]
+        ues = [:u1]
+        subs = ["verizon"]
 
         base_config = FTC.new_configuration(
             view,
@@ -196,8 +198,10 @@ defmodule FTCTest do
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
+        spawn_ues(ues, :gnb, subs)
+
         master = spawn(:master, fn ->
-            u1 = FTC.UE.new_ue(:u1, :gnb)
+            Enum.map(ues, fn x -> send(x, :master_send_req) end)
 
             receive do
             after
