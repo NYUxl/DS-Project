@@ -372,7 +372,8 @@ defmodule FTC.GNB do
     @spec send_messages(%GNB{}) :: %GNB{}
     def send_messages(state) do
         if state.nonce_to_send < state.nonce do
-            send(state.current_head, Map.get(state.buffer, state.nonce_to_send))
+            {_, msg} = Map.get(state.buffer, state.nonce_to_send)
+            send(state.current_head, msg)
             state = %{state | nonce_to_send: state.nonce_to_send + 1}
             send_messages(state)
         else
