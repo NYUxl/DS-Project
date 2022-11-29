@@ -364,6 +364,7 @@ defmodule FTC.Server do
     @spec buffer_response(%Server{}, map()) :: %Server{}
     def buffer_response(state, commit_vectors) do
         latest_nonce = Enum.min(Map.values(commit_vectors))
+        IO.puts(latest_nonce)
         repliable = Enum.filter(Map.keys(state.buffer), fn x -> x <= latest_nonce end)
         Enum.map(repliable, fn x ->
             msg = Map.get(state.buffer, x)
@@ -606,8 +607,14 @@ defmodule FTC.Server do
                     # update piggyback
                     piggyback_logs = List.delete_at(piggyback_logs, -1)
                     piggyback_logs = List.insert_at(piggyback_logs, 0, {nil, []})
-                    send(extra_state.next_hop, {:empty, piggyback_logs, commit_vectors})
-                    back_to_nf_node(state, extra_state)
+
+                    if state.is_last do # put message in the buffer and send to the forwarder
+                        state = buffer_response(state, commit_vectors)
+                        back_to_nf_node(state, extra_state)
+                    else # send to the next nf in the chain
+                        send(extra_state.next_hop, {:empty, piggyback_logs, commit_vectors})
+                        back_to_nf_node(state, extra_state)
+                    end
 
                 {^p_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
                     # update replica
@@ -653,7 +660,7 @@ defmodule FTC.Server do
                         back_to_nf_node(state, extra_state)
                     else
                         # this is the first nf node
-                        default = {[], Map.new([{state.rep_group, 0}])}
+                        default = {List.duplicate({nil, []}, state.num_of_replications - 2), Map.new([{state.rep_group, 0}])}
                         {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0, default)
                         state = %{state | forwarder: new_forwarder}
                         state = reset_nop_timer(state)
