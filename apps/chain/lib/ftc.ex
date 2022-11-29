@@ -461,8 +461,7 @@ defmodule FTC.GNB do
                         gNB(state)
                 
                     _node ->
-                        send_messages(state)
-                        state = %{state | nonce_to_send: state.nonce_to_send + 1}
+                        state = send_messages(state)
                         gNB(state)
                 end
             
@@ -489,8 +488,7 @@ defmodule FTC.GNB do
                         gNB(state)
                 
                     _node ->
-                        send_messages(state)
-                        state = %{state | nonce_to_send: state.nonce_to_send + 1}
+                        state = send_messages(state)
                         gNB(state)
                 end
             
