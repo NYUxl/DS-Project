@@ -221,8 +221,11 @@ defmodule FTC do
             # pull some state if needed
             storages = update_storages(storages, prev_node, next_node)
             # reconstruct the replica state
-            reconstructed_replica_1 = Enum.drop(Map.get(storages, next_node), rem(next_idx + len - chain_idx, len))
-            reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), rem(chain_idx + len - prev_idx, len))
+            p_diff = rem(chain_idx + len - prev_idx, len)
+            n_diff = rem(next_idx + len - chain_idx, len)
+            reconstructed_replica_1 = Enum.take(Map.get(storages, next_node), p_diff + 1)
+            reconstructed_replica_1 = Enum.drop(reconstructed_replica_1, 1)
+            reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), state.num_of_replications - p_diff)
             reconstructed_replica = reconstructed_replica_1 ++ reconstructed_replica_2
 
             send(
