@@ -492,7 +492,7 @@ defmodule FTC.Server do
                 else
                     # this is the first nf node
                     IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{sender}, proceed and send to #{state.next_hop}")
-                    default = {List.duplicate({nil, []}, state.num_of_replications - 1), Map.new([{state.rep_group, 0}])}
+                    default = {List.duplicate({nil, []}, state.num_of_replications - 2), Map.new([{state.rep_group, 0}])}
                     {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0, default)
                     state = %{state | forwarder: new_forwarder}
                     state = reset_nop_timer(state)
