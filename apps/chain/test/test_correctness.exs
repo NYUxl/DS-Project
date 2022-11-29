@@ -409,7 +409,7 @@ defmodule FTCTest do
             
             receive do
             after
-            20_000 -> true
+            10_000 -> true
             end
 
             # u1 will get ip and u2 will not get ip
@@ -425,7 +425,7 @@ defmodule FTCTest do
         receive do
             {:DOWN, ^handle, _, _, _} -> true
         after
-        50_000 -> assert false
+        30_000 -> assert false
         end
     after
         Emulation.terminate()

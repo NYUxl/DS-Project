@@ -235,7 +235,7 @@ defmodule FTC do
                     reconstructed_replica,
                     Enum.at(state.nf_chain, len - state.num_of_replications),
                     if(chain_idx == 0, do: true, else: false),
-                    if(chain_idx == (length(state.nodes) - 1), do: false, else: true)
+                    if(chain_idx == (length(state.nodes) - 1), do: true, else: false)
                 )
             )
 
