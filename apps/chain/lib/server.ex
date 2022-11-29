@@ -146,10 +146,10 @@ defmodule FTC.Server do
                 server(state)
             
             # Messages from clients
-            {sender, message} ->
+            {sender, %FTC.Message{gnb: _, nonce: nonce, header: _, payload: _}} ->
                 # should redirect the client to the orchestrator to
                 # ask for the first node inside the chain
-                send(sender, {:not_entry, message})
+                send(sender, {:not_entry, nonce})
                 server(state)
 
             # Default entry
@@ -285,7 +285,7 @@ defmodule FTC.Server do
                     else
                         case subscriber do
                             "verizon" ->
-                                # IO.puts("IP allocate for verizion user equipment.")
+                                IO.puts("IP allocate for verizion user equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
                                 # update ip in msg header
                                 allocated_ip = "168.168.168." <> to_string(current_max_ip + 1)
@@ -301,7 +301,7 @@ defmodule FTC.Server do
                                 {state, msg, state_update_list}
 
                             "mint" ->
-                                # IO.puts("IP allocate for mint equipment.")
+                                IO.puts("IP allocate for mint equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
                                 # update ip in msg header
                                 allocated_ip = "168.178.178." <> to_string(current_max_ip + 1)
@@ -317,7 +317,7 @@ defmodule FTC.Server do
                                 {state, msg, state_update_list}
 
                             "at&t" ->
-                                # IO.puts("IP allocate for at&t equipment.")
+                                IO.puts("IP allocate for at&t equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
                                 # update ip in msg header
                                 allocated_ip = "168.188.188." <> to_string(current_max_ip + 1)
@@ -333,7 +333,7 @@ defmodule FTC.Server do
                                 {state, msg, state_update_list} 
 
                             _ ->
-                                # IO.puts("No subscriber support. Fail to allocate IP.")
+                                IO.puts("No subscriber support. Fail to allocate IP.")
                                 msg = %{msg | header: %{msg.header | fail_bit: 1}}
                                 {state, msg, []} 
                         end
