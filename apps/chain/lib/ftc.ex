@@ -223,8 +223,8 @@ defmodule FTC do
             # reconstruct the replica state
             p_diff = rem(chain_idx + len - prev_idx, len)
             n_diff = rem(next_idx + len - chain_idx, len)
-            reconstructed_replica_1 = Enum.take(Map.get(storages, next_node), p_diff + 1)
-            reconstructed_replica_1 = Enum.drop(reconstructed_replica_1, 1)
+            reconstructed_replica_1 = Enum.take(Map.get(storages, next_node), p_diff + n_diff)
+            reconstructed_replica_1 = Enum.drop(reconstructed_replica_1, n_diff)
             reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), state.num_of_replications - p_diff)
             reconstructed_replica = reconstructed_replica_1 ++ reconstructed_replica_2
 

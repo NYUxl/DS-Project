@@ -281,12 +281,12 @@ defmodule FTCTest do
         spawn_ues(ues, :gnb, subs)
 
         master = spawn(:master, fn ->
-            Enum.map(ues, fn x -> send(x, :master_send_req) end)
-
             receive do
             after
             1_000 -> true
             end
+
+            Enum.map(ues, fn x -> send(x, :master_send_req) end)
 
             in_use = Map.new(Enum.map(view, fn x ->
                 {x, get_from_node(x, :in_use)}
@@ -312,7 +312,7 @@ defmodule FTCTest do
             assert(get_from_node(Enum.at(assigned, 1), :nf_state) == %{:u1 => {"verizon", 1}, :u3 => {"verizon", 0}, :u4 => {"mint", 0}, :u5 => {"at&t", 0}})
             assert(get_from_node(Enum.at(assigned, 2), :nf_state) == %{"verizon" => 101, "at&t" => 100, "mint" => 100, :u1 => "168.168.168.101"})
             assert(get_from_node(Enum.at(assigned, 3), :nf_state) == %{"168.168.168.101" => 1})
-
+            assert(get_from_node(Enum.at(assigned, 0), :replica_storage) == [%{"168.168.168.101" => 1}, %{"verizon" => 101, "at&t" => 100, "mint" => 100, :u1 => "168.168.168.101"}])
 
             # u1 will get ip and u2 will not get ip
             ips = Enum.map(ues, fn x ->
@@ -400,6 +400,10 @@ defmodule FTCTest do
             after
             10_000 -> true
             end
+
+            assigned = get_assigned(:orch)
+            assert (get_from_node(Enum.at(assigned, 1), :nf_state) == %{:u1 => {"verizon", 1}, :u3 => {"verizon", 1}, :u4 => {"mint", 1}, :u5 => {"at&t", 1}})
+            assert(get_from_node(Enum.at(assigned, 2), :nf_state) == %{"verizon" => 102, "at&t" => 101, "mint" => 101, :u1 => "168.168.168.101", :u3 => "168.168.168.102", :u4 => "168.178.178.101", :u5 => "168.188.188.101"})
 
             in_use = Map.new(Enum.map(view, fn x ->
                 {x, get_from_node(x, :in_use)}

@@ -248,6 +248,7 @@ defmodule FTC.Server do
                             {state, msg, [FTC.StateUpdate.new("insert", ue_id, 1)]}  
                         _ ->
                             # IO.puts("Update de-registered to register.")
+                            # IO.puts("amf reg_cnt: #{reg_cnt}")
                             state = %{state | nf_state: Map.put(state.nf_state, ue_id, reg_cnt + 1)}
                             {state, msg, [FTC.StateUpdate.new("modify", ue_id, reg_cnt + 1)]}
                     end
@@ -259,28 +260,28 @@ defmodule FTC.Server do
                     sb_log = Map.get(state.nf_state, ue_id)
                     case sb_log do
                         {^subscriber, 0} ->
-                            IO.puts("Successfully authenticate. Update authentication status.")
+                            # IO.puts("Successfully authenticate. Update authentication status.")
                             state = %{state | nf_state: Map.put(state.nf_state, ue_id, {subscriber, 1})}
-                            {state, msg, [FTC.StateUpdate.new("modify", ue_id, 1)]}
+                            {state, msg, [FTC.StateUpdate.new("modify", ue_id, {subscriber, 1})]}
 
                         {^subscriber, 1} ->
-                            IO.puts("Successfully authenticate.")
+                            # IO.puts("Successfully authenticate.")
                             {state, msg, []}
 
                         _ ->
-                            IO.puts("No subscriber #{subscriber} support. Fail to authenticate.")
+                            # IO.puts("No subscriber #{subscriber} support. Fail to authenticate.")
                             msg = %{msg | header: %{msg.header | fail_bit: 1}}
                             {state, msg, []}
                     end
                     
                 :smf ->
                     # session management
-                    IO.puts("SMF processing")
+                    # IO.puts("SMF processing")
                     ue_id = msg.header.ue
                     subscriber = msg.header.sub
                     ex_src_ip = Map.get(state.nf_state, ue_id)
                     if ex_src_ip != nil do
-                        IO.puts("Already allocated an IP.")
+                        # IO.puts("Already allocated an IP.")
                         msg = %{msg | header: %{msg.header | src_ip: ex_src_ip}}
                         {state, msg, []}
                     else
@@ -288,6 +289,7 @@ defmodule FTC.Server do
                             "verizon" ->
                                 IO.puts("IP allocate for verizion user equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
+                                # IO.puts("SMF current_max_ip: #{current_max_ip}")
                                 # update ip in msg header
                                 allocated_ip = "168.168.168." <> to_string(current_max_ip + 1)
                                 updated_hd = %{msg.header | src_ip: allocated_ip}
@@ -297,13 +299,14 @@ defmodule FTC.Server do
                                 updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                                 state = %{state | nf_state: updated_nf_state}
                                 # return state_update
-                                state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                state_update_list = [FTC.StateUpdate.new("modify", subscriber, current_max_ip + 1), 
                                                     FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                                 {state, msg, state_update_list}
 
                             "mint" ->
                                 IO.puts("IP allocate for mint equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
+                                # IO.puts("SMF current_max_ip: #{current_max_ip}")
                                 # update ip in msg header
                                 allocated_ip = "168.178.178." <> to_string(current_max_ip + 1)
                                 updated_hd = %{msg.header | src_ip: allocated_ip}
@@ -313,13 +316,14 @@ defmodule FTC.Server do
                                 updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                                 state = %{state | nf_state: updated_nf_state}
                                 # return state_update
-                                state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                state_update_list = [FTC.StateUpdate.new("modify", subscriber, current_max_ip + 1), 
                                                     FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                                 {state, msg, state_update_list}
 
                             "at&t" ->
                                 IO.puts("IP allocate for at&t equipment.")
                                 current_max_ip = Map.get(state.nf_state, subscriber)
+                                # IO.puts("SMF current_max_ip: #{current_max_ip}")
                                 # update ip in msg header
                                 allocated_ip = "168.188.188." <> to_string(current_max_ip + 1)
                                 updated_hd = %{msg.header | src_ip: allocated_ip}
@@ -329,12 +333,12 @@ defmodule FTC.Server do
                                 updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                                 state = %{state | nf_state: updated_nf_state}
                                 # return state_update
-                                state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                state_update_list = [FTC.StateUpdate.new("modify", subscriber, current_max_ip + 1), 
                                                     FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                                 {state, msg, state_update_list} 
 
                             _ ->
-                                IO.puts("No subscriber support. Fail to allocate IP.")
+                                # IO.puts("No subscriber support. Fail to allocate IP.")
                                 msg = %{msg | header: %{msg.header | fail_bit: 1}}
                                 {state, msg, []} 
                         end
@@ -365,8 +369,8 @@ defmodule FTC.Server do
     @spec buffer_response(%Server{}, map()) :: %Server{}
     def buffer_response(state, commit_vectors) do
         latest_nonce = Enum.min(Map.values(commit_vectors))
-        Enum.map(commit_vectors, fn {nf, v} -> IO.puts("#{nf}: #{v}") end)
-        IO.puts(latest_nonce)
+        # Enum.map(commit_vectors, fn {nf, v} -> IO.puts("#{nf}: #{v}") end)
+        # IO.puts(latest_nonce)
         repliable = Enum.filter(Map.keys(state.buffer), fn x -> x <= latest_nonce end)
         Enum.map(repliable, fn x ->
             msg = Map.get(state.buffer, x)
@@ -424,7 +428,7 @@ defmodule FTC.Server do
 
             # Message from previous hop
             {^p_hop, {:empty, piggyback_logs, commit_vectors}} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): empty received from #{p_hop}, forward to #{state.next_hop}")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): empty received from #{p_hop}, forward to #{state.next_hop}")
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
@@ -444,7 +448,7 @@ defmodule FTC.Server do
                 end
 
             {^p_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): from_buffer received from #{p_hop}, put in forwarder")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): from_buffer received from #{p_hop}, put in forwarder")
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
@@ -458,7 +462,7 @@ defmodule FTC.Server do
                 nf_node(state, extra_state)
 
             {^p_hop, {msg, piggyback_logs, commit_vectors}} -> 
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{p_hop}, forward to #{state.next_hop}")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{p_hop}, forward to #{state.next_hop}")
                 # update replica
                 updated_storage = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
