@@ -394,7 +394,6 @@ defmodule FTC.GNB do
 
     @spec gNB(%GNB{}) :: no_return()
     def gNB(state) do
-        IO.puts(state.nonce)
         orch = state.orchestrator
         receive do
             # message from orchestrator for current chain head
@@ -480,6 +479,7 @@ defmodule FTC.GNB do
                 state = %{state | buffer: Map.delete(state.buffer, nonce)}
                 state = %{state | buffer: Map.put(state.buffer, state.nonce, {req_sender, message})}
                 state = %{state | nonce: state.nonce + 1}
+                state = %{state | nonce_to_send: Enum.min(Map.keys(state.buffer))}
             
                 case state.current_head do
                     nil ->
