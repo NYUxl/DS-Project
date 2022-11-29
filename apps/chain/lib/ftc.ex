@@ -208,7 +208,7 @@ defmodule FTC do
 
     @spec fix_node_at(%FTC{}, list(atom()), list(atom()), map(), non_neg_integer()) :: %FTC{}
     def fix_node_at(state, dead_nodes, new_nodes, storages, idx) do
-        IO.puts("fix node at #{idx} in the dead node list")
+        IO.puts("fix node at #{idx} in the dead node list (#{Enum.at(dead_nodes, idx)})")
         if idx < length(dead_nodes) do
             # nodes before idx are fixed, now to fix idx-th node
             # retrieve the state and restore the node
@@ -251,7 +251,8 @@ defmodule FTC do
     def fix_nodes(state, dead_nodes) do
         # it would be better if we can make sure that there are enough alive servers
         # other than the dead ones, but it is ok to assume that they are still usable
-        avail_nodes = state.view -- state.nodes ++ dead_nodes
+        avail_nodes = state.view -- state.nodes
+        avail_nodes = avail_nodes ++ dead_nodes
         selected_nodes = Enum.take_random(avail_nodes, length(dead_nodes))
         new_nodes = Enum.reduce(
             Range.new(0, length(dead_nodes) - 1), 
@@ -346,16 +347,16 @@ defmodule FTC.GNB do
         nonce: nil,
         # the next nonce to send, should be <= nonce
         nonce_to_send: nil,
-        # if some message got no response for long time, we should return fail
-        expire_thres: nil,
+        # if some message got no response for long time, we should retry
+        message_timers: nil,
         buffer: nil,
         current_head: nil
     )
 
     @retry_timeout 1000
 
-    @spec new_gNB(atom(), non_neg_integer()) :: %GNB{}
-    def new_gNB(orchestrator, thres) do
+    @spec new_gNB(atom()) :: %GNB{}
+    def new_gNB(orchestrator) do
         %GNB{
             id: whoami(),
             orchestrator: orchestrator,
@@ -363,7 +364,7 @@ defmodule FTC.GNB do
             wait_timer: nil,
             nonce: 1,
             nonce_to_send: 1,
-            expire_thres: thres,
+            message_timers: %{},
             buffer: %{},
             current_head: nil
         }
@@ -373,7 +374,9 @@ defmodule FTC.GNB do
     def send_messages(state) do
         if state.nonce_to_send < state.nonce do
             {_, msg} = Map.get(state.buffer, state.nonce_to_send)
+            t = Emulation.timer(state.wait_timeout, state.nonce_to_send)
             send(state.current_head, msg)
+            state = %{state | message_timers: Map.put(state.message_timers, state.nonce_to_send, t)}
             state = %{state | nonce_to_send: state.nonce_to_send + 1}
             send_messages(state)
         else
@@ -395,19 +398,27 @@ defmodule FTC.GNB do
         receive do
             # message from orchestrator for current chain head
             {^orch, {:current_head, dealer}} ->
-                Emulation.cancel_timer(state.wait_timer)
+                if(state.wait_timer != nil, do: Emulation.cancel_timer(state.wait_timer))
                 state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
                 gNB(state)
 
             # need to ask for the chain entry
             {_node, {:not_entry, nonce}} ->
-                state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
-                send(orch, :request_for_head)
-                state = %{state | current_head: :waiting, nonce_to_send: nonce}
-                gNB(state)
+                IO.puts("GNB: not entry received")
+                if state.current_head != :waiting do
+                    IO.puts("GNB: send request for head")
+                    state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
+                    send(orch, :request_for_head)
+                    state = %{state | current_head: :waiting, nonce_to_send: nonce}
+                    gNB(state)
+                else
+                    state = %{state | nonce_to_send: if(nonce < state.nonce_to_send, do: nonce, else: state.nonce_to_send)}
+                    gNB(state)
+                end
             
             :timer ->
+                IO.puts("GNB: timer received, resend request for current head")
                 state = %{state | wait_timer: Emulation.timer(state.wait_timeout)}
                 send(orch, :request_for_head)
                 gNB(state)
@@ -419,32 +430,20 @@ defmodule FTC.GNB do
                     gNB(state)
                 end
 
+                # cancel timer
+                t = Map.get(state.message_timers, nonce)
+                if(t != nil, do: Emulation.cancel_timer(t))
+                state = %{state | message_timers: Map.delete(state.message_timers, nonce)}
                 # retrieve the message
                 {req_sender, message} = Map.get(state.buffer, nonce)
                 send(req_sender, FTC.MessageResponse.succ(message.header.ue, message.header.pid, updated_header))
 
-
                 state = %{state | buffer: Map.delete(state.buffer, nonce)}
-                nonces = Enum.filter(Map.keys(state.buffer), fn x -> x < state.nonce - state.expire_thres end)
-                if Enum.empty?(nonces) do
-                    gNB(state)
-                else
-                    # retry outdated messages (here we assume that messages are retriable)
-                    new_messages = Enum.map(Range.new(0, length(nonces) - 1), fn x ->
-                        {req_sender, message} = Map.get(state.buffer, Enum.at(nonces, x))
-                        message = %{message | nonce: state.nonce + x}
-                        {state.nonce + x, {req_sender, message}}
-                    end)
-                    state = %{state | buffer: Map.merge(state.buffer, Map.new(new_messages))}
-                    state = %{state | nonce: state.nonce + length(nonces)}
-                    send_messages(state)
-
-                    state = %{state | buffer: Map.drop(state.buffer, nonces)}
-                    gNB(state)
-                end
+                gNB(state)
 
             # new request from UE
             {sender, message} ->
+                IO.puts("GNB: Message received from #{sender}.")
                 # tag the message with the current nonce
                 message = %{message | gnb: state.id, nonce: state.nonce}
                 state = %{state | buffer: Map.put(state.buffer, state.nonce, {sender, message})}
@@ -455,7 +454,7 @@ defmodule FTC.GNB do
                 case state.current_head do
                     nil ->
                         send(orch, :request_for_head)
-                        state = %{state | current_head: :waiting}
+                        state = %{state | current_head: :waiting, wait_timer: Emulation.timer(state.wait_timeout)}
                         gNB(state)
                     
                     :waiting ->
@@ -466,6 +465,38 @@ defmodule FTC.GNB do
                         state = %{state | nonce_to_send: state.nonce_to_send + 1}
                         gNB(state)
                 end
+            
+            # nonce sent back by timer
+            nonce ->
+                if not Map.has_key?(state.buffer, nonce) do
+                    gNB(state)
+                end
+
+                state = %{state | message_timers: Map.delete(state.message_timers, nonce)}
+                # retrieve the message
+                {req_sender, message} = Map.get(state.buffer, nonce)
+                state = %{state | buffer: Map.delete(state.buffer, nonce)}
+                state = %{state | buffer: Map.put(state.buffer, state.nonce, {req_sender, message})}
+                state = %{state | nonce: state.nonce + 1}
+            
+                case state.current_head do
+                    nil ->
+                        send(orch, :request_for_head)
+                        state = %{state | current_head: :waiting, wait_timer: Emulation.timer(state.wait_timeout)}
+                        gNB(state)
+                    
+                    :waiting ->
+                        gNB(state)
+                
+                    _node ->
+                        send_messages(state)
+                        state = %{state | nonce_to_send: state.nonce_to_send + 1}
+                        gNB(state)
+                end
+            
+            # default
+            _ ->
+                gNB(state)
         end
     end
 end
@@ -510,12 +541,12 @@ defmodule FTC.UE do
         receive do
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(ue): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(ue): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 ue(state)
             
             {_sender, :master_send_req} ->
-                IO.puts("#{whoami()}(ue): master_send_req received, send registration request")
+                # IO.puts("#{whoami()}(ue): master_send_req received, send registration request")
                 send(
                     state.gnb,
                     FTC.Message.new(
