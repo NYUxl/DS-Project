@@ -394,10 +394,12 @@ defmodule FTC.GNB do
 
     @spec gNB(%GNB{}) :: no_return()
     def gNB(state) do
+        IO.puts(state.nonce)
         orch = state.orchestrator
         receive do
             # message from orchestrator for current chain head
             {^orch, {:current_head, dealer}} ->
+                IO.puts("GNB: current_head (#{dealer}) received")
                 if(state.wait_timer != nil, do: Emulation.cancel_timer(state.wait_timer))
                 state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
@@ -467,6 +469,7 @@ defmodule FTC.GNB do
             
             # nonce sent back by timer
             nonce ->
+                IO.puts("GNB: timer (#{nonce}) received, resend")
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
                 end
