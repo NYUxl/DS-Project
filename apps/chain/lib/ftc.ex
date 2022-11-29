@@ -51,7 +51,7 @@ defmodule FTC do
             
             :ausf ->
                 # "AUSF state initialized"
-                %{:u1 => {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
+                %{:u1 => {"verizon", 0}, :u3 => {"verizon", 0}, :u4 => {"mint", 0}, :u5 => {"at&t", 0}} # key:UEid, value:{serving_network_name, status}
             
             :smf ->
                 # "SMF state initialized"
@@ -236,7 +236,7 @@ defmodule FTC do
                     Enum.at(new_nodes, rem(chain_idx + 1, len)),
                     state.num_of_replications,
                     reconstructed_replica,
-                    Enum.at(state.nf_chain, len - state.num_of_replications),
+                    Enum.at(state.nf_chain, rem(len + chain_idx + 1 - state.num_of_replications, len)),
                     if(chain_idx == 0, do: true, else: false),
                     if(chain_idx == (length(state.nodes) - 1), do: true, else: false)
                 )

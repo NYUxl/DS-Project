@@ -309,7 +309,7 @@ defmodule FTCTest do
             
             # nf has right state information
             assert(get_from_node(Enum.at(assigned, 0), :nf_state) == %{u1: 1, u2: 1})
-            assert(get_from_node(Enum.at(assigned, 1), :nf_state) == %{u1: {"verizon", 1}})
+            assert(get_from_node(Enum.at(assigned, 1), :nf_state) == %{:u1 => {"verizon", 1}, :u3 => {"verizon", 0}, :u4 => {"mint", 0}, :u5 => {"at&t", 0}})
             assert(get_from_node(Enum.at(assigned, 2), :nf_state) == %{"verizon" => 101, "at&t" => 100, "mint" => 100, :u1 => "168.168.168.101"})
             assert(get_from_node(Enum.at(assigned, 3), :nf_state) == %{"168.168.168.101" => 1})
 

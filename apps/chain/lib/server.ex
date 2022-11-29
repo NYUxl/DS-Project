@@ -259,27 +259,28 @@ defmodule FTC.Server do
                     sb_log = Map.get(state.nf_state, ue_id)
                     case sb_log do
                         {^subscriber, 0} ->
-                            # IO.puts("Successfully authenticate. Update authentication status.")
+                            IO.puts("Successfully authenticate. Update authentication status.")
                             state = %{state | nf_state: Map.put(state.nf_state, ue_id, {subscriber, 1})}
                             {state, msg, [FTC.StateUpdate.new("modify", ue_id, 1)]}
 
                         {^subscriber, 1} ->
-                            # IO.puts("Successfully authenticate.")
+                            IO.puts("Successfully authenticate.")
                             {state, msg, []}
 
                         _ ->
-                            # IO.puts("No subscriber #{subscriber} support. Fail to authenticate.")
+                            IO.puts("No subscriber #{subscriber} support. Fail to authenticate.")
                             msg = %{msg | header: %{msg.header | fail_bit: 1}}
                             {state, msg, []}
                     end
                     
                 :smf ->
                     # session management
+                    IO.puts("SMF processing")
                     ue_id = msg.header.ue
                     subscriber = msg.header.sub
                     ex_src_ip = Map.get(state.nf_state, ue_id)
                     if ex_src_ip != nil do
-                        # IO.puts("Already allocated an IP.")
+                        IO.puts("Already allocated an IP.")
                         msg = %{msg | header: %{msg.header | src_ip: ex_src_ip}}
                         {state, msg, []}
                     else
@@ -364,6 +365,7 @@ defmodule FTC.Server do
     @spec buffer_response(%Server{}, map()) :: %Server{}
     def buffer_response(state, commit_vectors) do
         latest_nonce = Enum.min(Map.values(commit_vectors))
+        Enum.map(commit_vectors, fn {nf, v} -> IO.puts("#{nf}: #{v}") end)
         IO.puts(latest_nonce)
         repliable = Enum.filter(Map.keys(state.buffer), fn x -> x <= latest_nonce end)
         Enum.map(repliable, fn x ->
