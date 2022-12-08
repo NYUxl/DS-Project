@@ -45,8 +45,20 @@ defmodule FTC do
     @spec init_state(atom()) :: any()
     def init_state(nf) do
         case nf do
-            # TODO: fill in each case
-
+            :amf ->
+                "AMF state initialized"
+                %{} # key:UEid, value:location, registration_state(bool)
+            :ausf ->
+                "AUSF state initialized"
+                %{1: "a"} # key:UEid, value:serving_network_name
+            :smf ->
+                "SMF state initialized"
+                %{} # key:UEid, value:ip
+            :upf ->
+                "UPF state initialized"
+                %{} # key:src_ip, value:forwarding_port
+            _ ->
+                "Cannot initialize #{nf}"
         end
     end
 
