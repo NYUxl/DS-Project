@@ -57,6 +57,27 @@ defmodule Server.NewInstance do
     end
 end
 
+defmodule Server.Hold do
+    @moduledoc """
+    When some node fails, orchestrator need to temporaliy pause
+    all the nodes
+    """
+    alias __MODULE__
+    defstruct(
+        default: nil
+    )
+end
+
+defmodule SomeName do
+    @moduledoc """
+    
+    """
+    alias __MODULE__
+    defstruct(
+        default: nil
+    )
+end
+
 defmodule SomeName do
     @moduledoc """
     
