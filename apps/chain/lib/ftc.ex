@@ -62,11 +62,24 @@ defmodule FTC do
         end
     end
 
+    @spec reset_live_timer(%FTC{}) :: %FTC{}
+    def reset_live_timer(state) do
+        if state.live_timer != nil do
+            n = Emulation.cancel_timer(state.live_timer)
+        end
+        %{state | live_timer: Emulation.timer(state.live_timeout)}
+    end
+
+    @spec reset_extra_state(%FTC{}) :: any()
+    def reset_extra_state(state) do
+        Map.new(state.nodes, fn x -> {x, 0} end)
+    end
+
     @doc """
-    The start-up step.
-    1. Choose some free servers to be each NF
-    2. Assign the initial state and replica storages to each NF node
-    3. Wait for the NF nodes to send heartbeat to show liveness
+    The start-up step
+    1. choose some free servers to be each NF
+    2. assign the initial state and replica storages to each NF node
+    3. wait for the NF nodes to send heartbeat to show liveness
     """
     @spec start(%FTC{}) :: no_return()
     def start(state) do
@@ -126,10 +139,29 @@ defmodule FTC do
         )
 
         # wait for heartbeat
-        orchestrator(state, Map.new())
+        state = reset_live_timer(state)
+        orchestrator(state, reset_extra_state())
     end
 
     @spec orchestrator(%FTC{}, any()) :: no_return()
     def orchestrator(state, extra_state) do
+        receive do
+            # heartbeat message from a node
+            {sender, {:heartbeat}} -> 
+                extra_state = Map.put(extra_state, sender, 1)
+                if Enum.any?(Map.values(extra_state), fn x -> x == 0 end) do
+                    orchestrator(state, extra_state)
+                else
+                    state = reset_live_timer(state)
+                    orchestrator(state, reset_extra_state())
+                end
+            
+            # liveness timer received, some node died
+            # 1. stop the process
+            # 2. recreate an instance and restore the state
+            # 3. continue the process
+            :timer ->
+                
+        end
     end
 end

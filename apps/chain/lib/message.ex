@@ -57,6 +57,16 @@ defmodule Server.NewInstance do
     end
 end
 
+defmodule SomeName do
+    @moduledoc """
+    
+    """
+    alias __MODULE__
+    defstruct(
+        default: nil
+    )
+end
+
 defmodule FTC.Packet do
     @moduledoc """
     Packet architecture of the FTC, containing header and content
