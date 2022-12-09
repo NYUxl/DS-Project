@@ -73,6 +73,24 @@ defmodule FTC.Packet do
     """
     alias __MODULE__
     defstruct(
-
+        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil}
+        payload: "payload 1500 bytes"
+        piggyback: nil
     )
+
+    # TODO: check the correctness of type
+    @spec new(non_neg_integer(), string(), string(), map(), list()) :: %Packet{}
+    def new(p_id, hd, pload, pback) do
+        %Packet{
+            header: hd, # %{pid: p_id, src_ip: src, dst_ip: dst}
+            payload: pload, # ue, loc
+            piggyback: pback
+        }
+    end
+    
+    @spec update_piggyback(list()) :: %Packet{}
+    def update_piggyback(packet, new_piggyback) do
+        %{packet | piggyback: new_piggyback}
+    end
+
 end

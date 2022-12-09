@@ -163,4 +163,37 @@ defmodule Server do
             # Default entry
         end
     end
+
+    # TODO: re-architecture
+    @spec nf_amf_node(%Server{}, any()) :: no_return()
+    def nf_amf_node(state, extra_state) do
+        receive do
+            # Control message from orchestrator
+            
+            # Messages from clients
+            {sender, pkt} ->
+                # TODO: replica
+                replicate_states = pkt.piggyback
+                
+
+                # registration procedure
+                ud_id = Map.get(pkt.payload, :ue)
+                loc = Map.get(pkt.payload, :loc)
+                if Map.get(state, ue_id) != True do
+                    # send pkt to the next registration procedure step
+                    send(:ausf, pkt)
+                    nf_amf_node(state, extra_state)
+                else # already registered
+                    # ack completed to the client
+                    send(sender, :ok)
+                    nf_amf_node(state, extra_state)
+
+            # Messages for testing
+
+            # Default entry
+        end
+    end
+
+    @spec update_rep_state()
+        List.update_at()
 end
