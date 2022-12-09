@@ -14,24 +14,26 @@ defmodule Server do
 
     # General structure of a server
     defstruct(
-        # Basic information
+        # basic information
         id: nil,
         orchestrator: nil,
         in_use: nil,
         heartbeat_timeout: nil,
-        # Special timeout if this server contains a forwarder
+        # special timeout if this server contains a forwarder
         nop_timeout: nil,
         nop_timer: nil,
-        # State for the own NF
+        # message buffer for reliable transmission
+        # m_buf: nil, # TODO: whether to add this?
+        # state for the own NF
         nf_name: nil,
         nf_state: nil,
-        # Information for the NF chain
+        # information for the NF chain
         prev_hop: nil,
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
         commit_vector: nil,
-        # Forwarder and Buffer
+        # forwarder and buffer
         is_first: nil,
         is_last: nil,
         forwarder: nil, # list of following piggyback headers
@@ -161,6 +163,8 @@ defmodule Server do
             # Messages for testing
 
             # Default entry
+            _ ->
+                nf_node(state, extra_state)
         end
     end
 

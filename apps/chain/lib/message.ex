@@ -57,6 +57,36 @@ defmodule Server.NewInstance do
     end
 end
 
+defmodule Server.StateResponse do
+    @moduledoc """
+    When some node fails, orchestrator need to temporaliy pause
+    all the nodes
+    """
+    alias __MODULE__
+    defstruct(
+        id: nil,
+        state: nil
+    )
+
+    @spec new(any()) :: %StateResponse{}
+    def new(id, nf_state) do
+        %StateResponse{
+            id: id,
+            state: nf_state
+        }
+    end
+end
+
+defmodule SomeName do
+    @moduledoc """
+    
+    """
+    alias __MODULE__
+    defstruct(
+        default: nil
+    )
+end
+
 defmodule SomeName do
     @moduledoc """
     
