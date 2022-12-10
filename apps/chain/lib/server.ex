@@ -159,9 +159,34 @@ defmodule Server do
     @spec nf_update(map(), atom()) :: map()
     
     @doc """
+    Update replica's states
+    """
+    @spec update_replica(list(), list()) :: list(any())
+    def update_replica(storage,  update) do
+        loop_update_replica(storage, update, 0)
+    end
+
+    @doc """
     For loop to update the replica's states
     """
-    @spec loop_update_replica() :: list(any())
+    @spec loop_update_replica(list(), list(), non_neg_integer()) :: list(any())
+    def loop_update_replica(storage,  update, idx) do
+        if idx < length(storage) do
+            case update.action do
+                "insert" -> 
+                    updated_storage_i = storage.at(idx) 
+                    loop_update_replica(storage, update, idx + 1)
+                "delete" ->
+                    loop_update_replica(storage, update, idx + 1)
+                    
+                "modify" ->
+                    loop_update_replica(storage, update, idx + 1)
+
+                _ ->
+                    IO.puts("Not valid operation #{update.action} on storage state update")
+        else
+            storage
+    end
 
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
@@ -192,9 +217,9 @@ defmodule Server do
             
             # Messages from clients
             {sender, pkt} ->
-                # TODO: replica
-                replicate_states = pkt.piggyback
-                
+                # update replicas
+                storage_updates = pkt.piggyback
+                update_replica(state.replica_storage, storage_updates)
 
                 # registration procedure
                 ud_id = Map.get(pkt.payload, :ue)
@@ -214,6 +239,4 @@ defmodule Server do
         end
     end
 
-    @spec update_rep_state()
-        List.update_at()
 end
