@@ -32,7 +32,7 @@ defmodule Server do
         next_hop: nil,
         num_of_replications: nil,
         replica_storage: nil,
-        commit_vector: nil,
+        rep_group: nil,
         # forwarder and buffer
         is_first: nil,
         is_last: nil,
@@ -58,7 +58,7 @@ defmodule Server do
             next_hop: nil,
             num_of_replications: nil,
             replica_storage: nil,
-            commit_vector: nil,
+            rep_group: nil,
             is_first: nil,
             is_last: nil,
             forwarder: nil,
@@ -119,7 +119,7 @@ defmodule Server do
                 next_hop: next_hop,
                 num_of_replications: num_of_replications,
                 replica_storage: replica_storage,
-                commit_vector: commit_vector,
+                rep_group: rep_group,
                 is_first: is_first,
                 is_last: is_last
              }} ->
@@ -130,13 +130,17 @@ defmodule Server do
                             next_hop: next_hop,
                             num_of_replications: num_of_replications,
                             replica_storage: replica_storage,
-                            commit_vector: commit_vector,
+                            rep_group: rep_group,
                         }
                 state = add_forwarder(state, is_first)
                 state = add_buffer(state, is_last)
                 become_nf_node(state)
             
             # Messages from clients
+            {sender, message} ->
+                # should redirect the client to the orchestrator to
+                # ask for the first node inside the chain
+                send(sender, {:not_entry, message})
 
             # Messages for testing
 
@@ -194,9 +198,12 @@ defmodule Server do
             # Control message from orchestrator
             
             # Message from previous hop
-            {^prev_hop, {piggyback, message}} -> 
+            {^prev_hop, {logs, commit_vectors, message}} -> 
 
             # Messages from clients
+            {sender, message} ->
+                if state is amf
+
 
             # Messages for testing
 
