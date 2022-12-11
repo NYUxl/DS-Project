@@ -217,11 +217,11 @@ defmodule Server do
                 # check ue registration status
                 if ue_id == nil do
                     IO.puts("No record. Update to register.")
-                    update_replica(state.nf_state, %StateUpdate{
-                                                            action: "insert",
-                                                            key: msg.header.ue,
-                                                            value: 1})
-                    Map.put(state.nf_state, ue_id, 1)
+                    state.nf_state = update_replica(state.nf_state, %StateUpdate{
+                                                                        action: "insert",
+                                                                        key: msg.header.ue,
+                                                                        value: 1})
+                                                                    
                 else
                     if 
                 end
