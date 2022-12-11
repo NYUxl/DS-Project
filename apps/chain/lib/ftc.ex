@@ -83,7 +83,7 @@ defmodule FTC do
     """
     @spec start(%FTC{}) :: no_return()
     def start(state) do
-        state = %{state | nodes: Enum.random(state.view, length(nf_chain))}
+        state = %{state | nodes: Enum.take_random(state.view, length(nf_chain))}
         
         # assign initial states to each node
         initial_states = Enum.map(state.nf_chain, fn x -> init_state(x) end)
@@ -143,6 +143,24 @@ defmodule FTC do
         orchestrator(state, reset_extra_state())
     end
 
+    @spec fix_node_at(%FTC{}, list(atom()), map(), non_neg_integer()) :: %FTC{}
+    def fix_node_at(state, dead_nodes, storages, idx) do
+        if idx < length(dead_nodes) do
+            # nodes before idx are fixed, now to fix idx-th node
+            avail_list = Enum.filter(state.view, fn x -> )
+            new_node = Enum.random()
+        else
+            # all dead nodes fixed
+            state
+        end
+    end
+
+    @spec fix_nodes(%FTC{}, list(atom())) :: %FTC{}
+    def fix_nodes(state, dead_nodes) do
+        alive_nodes = state.view -- state.nodes ++ dead_nodes
+        fix_node_at(state, dead_nodes, %{}, 0)
+    end 
+
     @spec orchestrator(%FTC{}, any()) :: no_return()
     def orchestrator(state, extra_state) do
         receive do
@@ -162,7 +180,15 @@ defmodule FTC do
             # 3. continue the process
             :timer ->
                 dead_nodes = Enum.filter(state.nodes, fn x -> Map.get(extra_state, x) == 0 end)
+                alive_nodes = Enum.filter(state.nodes, fn x -> Map.get(extra_state, x) == 1 end)
+                # to make sure the node is terminated
+                Enum.map(dead_nodes, fn x -> send(x, :terminate) end)
+                # to stop the whole process
+                Enum.map(alive_nodes, fn x -> send(x, :pause) end)
 
+                state = fix_nodes(state, dead_nodes)
+                # to resume the whole process
+                Enum.map(alive_nodes, fn x -> send(x, :resume) end)
         end
     end
 end
