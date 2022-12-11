@@ -157,28 +157,28 @@ defmodule Server do
         nf_node(state, nil)
     end
 
-    @doc """
-    The NF processes the incoming message and update its own state
-    """
-    @spec nf_update(map(any()), atom()) :: map()
-    
+
     @doc """
     Update replica's states
     """
     @spec update_replica(map(any()), map(any())) :: map(any())
     def update_replica(storage, update) do
-        case update.action do
-            "insert" -> 
-                Map.put(storage, update.key, update.value)
-                IO.puts("Insert a rule in replica")
-            "delete" ->
-                Map.delete(storage, update.key)
-                IO.puts("Delete a rule in replica")
-            "modify" ->
-                %{storage | update.key: update.value}
-                IO.puts("Modify a rule in replica")
-            _ ->
-                IO.puts("Not valid operation #{update.action} on storage state update")
+        if update == nil do
+            storage
+        else
+            case update.action do
+                "insert" -> 
+                    Map.put(storage, update.key, update.value)
+                    IO.puts("Insert a rule in replica")
+                "delete" ->
+                    Map.delete(storage, update.key)
+                    IO.puts("Delete a rule in replica")
+                "modify" ->
+                    %{storage | update.key: update.value}
+                    IO.puts("Modify a rule in replica")
+                _ ->
+                    IO.puts("Not valid operation #{update.action} on storage state update")
+            end
         end
     end
 
@@ -204,21 +204,48 @@ defmodule Server do
         Enum.reverse(updated_storages)
     end
 
+    @doc """
+    The NF processes the incoming message and update its own state
+    1: registered
+    0: de-registered
+    """
+    @spec nf_process(map(any()), non_neg_integer()) :: %Server{}
+    def nf_process(state, msg)
+        ue_id = Map.get(state.nf_state, state.nf_name, msg.header.ue)
+        case nf_name do
+            :amf ->
+                # check ue registration status
+                if ue_id == nil do
+                    IO.puts("No record. Update to register.")
+                    update_replica(state.nf_state, %StateUpdate{
+                                                            action: "insert",
+                                                            key: msg.header.ue,
+                                                            value: 1})
+                else
+                    if 
+                end
+            end        
+    
+    end
+
     @spec nf_node(%Server{}, any()) :: no_return()
     def nf_node(state, extra_state) do
         receive do
             # Control message from orchestrator
-            
+
             # Message from previous hop
-            {^prev_hop, {logs, commit_vectors, message}} -> 
+            {^prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
 
             # Messages from clients
-            {sender, message} ->
-                case state.nf_name do
-                    :amf ->
-                        
-
-
+            {sender, {msg, piggyback_logs, commit_vectors}} ->
+                # update replica
+                updated = loop_update_replica(state.replica_storage, piggyback_logs)
+                state = %{state | replica_storage: updated_storage}
+                # nf process logic and update primary state
+                state = nf_process(state, msg)
+                # TODO: commit_vectors
+                # send to the next nf in the chain
+                send(next_hop, {msg, piggyback_logs, commit_vectors})
 
 
             # Messages for testing
@@ -229,37 +256,6 @@ defmodule Server do
         end
     end
 
-    send(next_hop, {piggyback, message})
-
-
-    # TODO: re-architecture
-    @spec nf_amf_node(%Server{}, any()) :: no_return()
-    def nf_amf_node(state, extra_state) do
-        receive do
-            # Control message from orchestrator
-            
-            # Messages from clients
-            {sender, pkt} ->
-                # update replicas
-                storage_updates = pkt.piggyback
-                update_replica(state.replica_storage, storage_updates)
-
-                # registration procedure
-                ud_id = Map.get(pkt.payload, :ue)
-                loc = Map.get(pkt.payload, :loc)
-                if Map.get(state, ue_id) != True do
-                    # send pkt to the next registration procedure step
-                    send(:ausf, pkt)
-                    nf_amf_node(state, extra_state)
-                else # already registered
-                    # ack completed to the client
-                    send(sender, :ok)
-                    nf_amf_node(state, extra_state)
-
-            # Messages for testing
-
-            # Default entry
-        end
-    end
+    
 
 end
