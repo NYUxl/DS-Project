@@ -230,7 +230,7 @@ defmodule GNB do
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
                 end
-                
+
                 # retrieve the message
                 {req_sender, message} = Map.get(state.buffer, nonce)
                 send(req_sender, Server.MessageResponse.succ(message.header.ue, message.header.pid))
@@ -240,11 +240,15 @@ defmodule GNB do
                 if Enum.empty?(nonces) do
                     gNB(state)
                 else
-                    # reply fail to outdated messages
-                    Enum.map(nonces, fn x ->
-                        {req_sender, message} = Map.get(state.buffer, x)
-                        send(req_sender, Server.MessageResponse.fail(message.header.ue, message.header.pid))
+                    # retry outdated messages (here we assume that messages are retriable)
+                    new_messages = Enum.map(Range.new(0, length(nonces) - 1), fn x ->
+                        {req_sender, message} = Map.get(state.buffer, Enum.at(nonces, x))
+                        message = %{message | nonce: state.nonce + x}
+                        {state.nonce + x, {req_sender, message}}
                     end)
+                    state = %{state | buffer: Map.merge(state.buffer, Map.new(new_messages))}
+                    state = %{state | nonce: state.nonce + length(nonces)}
+                    send_messages(state)
 
                     state = %{state | buffer: Map.drop(state.buffer, nonces)}
                     gNB(state)
@@ -269,7 +273,7 @@ defmodule GNB do
                         gNB(state)
                 
                     node ->
-                        send(node, message)
+                        send_messages(state)
                         state = %{state | nonce_to_send: state.nonce_to_send + 1}
                         gNB(state)
                 end
