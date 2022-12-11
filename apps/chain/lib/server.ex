@@ -209,21 +209,25 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(map(any()), non_neg_integer()) :: %Server{}
+    @spec nf_process(:atom(), map(any()), non_neg_integer()) :: %Server{}
     def nf_process(state, msg)
-        ue_id = Map.get(state.nf_state, state.nf_name, msg.header.ue)
-        case nf_name do
+        ue_id = Map.get(state.nf_state, msg.header.ue)
+        case state.nf_name do
             :amf ->
                 # check ue registration status
-                if ue_id == nil do
-                    IO.puts("No record. Update to register.")
-                    state.nf_state = update_replica(state.nf_state, %StateUpdate{
-                                                                        action: "insert",
-                                                                        key: msg.header.ue,
-                                                                        value: 1})
-                                                                    
-                else
-                    if 
+                case ue_id
+                    nil ->
+                        IO.puts("No record. Update to register.")
+                        Map.put(state.nf_state, ue_id, 1)
+                    0 ->
+                        IO.puts("Update de-registered to register.")
+                        Map.put(state.nf_state, ue_id, 1)
+                    1 -> 
+                        IO.puts("Already registered.")
+                    _ ->
+                        IO.puts("No #{ue_id} registration status.")
+
+                    else 
                 end
             end        
     
@@ -253,6 +257,7 @@ defmodule Server do
                 state = %{state | replica_storage: updated_storage}
                 # nf process logic and update primary state
                 state = nf_process(state, msg)
+                piggyback_logs = 
                 # TODO: commit_vectors
                 # send to the next nf in the chain
                 send(next_hop, {msg, piggyback_logs, commit_vectors})
