@@ -99,11 +99,11 @@ defmodule UE.Message do
     )
 
     # TODO: check the correctness of type
-    @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string()) :: %Message{}
-    def new(ue, pid, src, dst, pload) do
+    @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string(), string()) :: %Message{}
+    def new(pid, ue, sb, src, dst, pload) do
         %Message{
             nonce: nil,
-            header: %{ue: ue, pid: pid, src_ip: src, dst_ip: dst},
+            header: %{pid: pid, ue: ue, sb: sb, src_ip: src, dst_ip: dst},
             payload: pload
         }
     end

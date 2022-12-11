@@ -209,27 +209,59 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(:atom(), map(any()), non_neg_integer()) :: %Server{}
+    @spec nf_process(atom(), map(any()), non_neg_integer()) :: %Server{}
     def nf_process(state, msg)
-        ue_id = Map.get(state.nf_state, msg.header.ue)
         case state.nf_name do
             :amf ->
+                ue_id = msg.header.ue
+                reg_status_log = Map.get(state.nf_state, ue_id)
                 # check ue registration status
-                case ue_id
+                case reg_status_log do
                     nil ->
                         IO.puts("No record. Update to register.")
-                        Map.put(state.nf_state, ue_id, 1)
+                        state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
+                        {state, %StateUpdate{action: "insert", key: ue_id, value: 1}}
+                        # TODO: send pkt
                     0 ->
                         IO.puts("Update de-registered to register.")
-                        Map.put(state.nf_state, ue_id, 1)
+                        state = %{state | nf_state:Map.put(state.nf_state, ue_id, 1)}
+                        {state, %StateUpdate{action: "modify", key: ue_id, value: 1}}
+                        # TODO: send pkt
                     1 -> 
                         IO.puts("Already registered.")
+                        {state, nil}
+                        # TODO: send pkt
                     _ ->
                         IO.puts("No #{ue_id} registration status.")
-
-                    else 
+                        {state, nil}
+                        # TODO: send pkt
                 end
-            end        
+            :ausf ->
+                # check ue authentication
+                ue_id = msg.header.ue
+                subscriber = msg.header.sb
+                sb_log = Map.get(state.nf_state, ue_id)
+                case sb_log do
+                    {subscriber, 0} ->
+                        IO.puts("Successfully authenticate. Update authentication status.")
+                        Map.put(state.nf_state, ue_id, {subscriber, 1})
+                        {state, %StateUpdate{action: "modify", key: ue_id, value: {}}}
+                    {subscriber, 1} ->
+                        IO.puts("Successfully authenticate.")
+                        {state, nil}
+                    _ ->
+                        IO.puts("Fail to authenticate.")
+                        {state, nil}
+                end
+            end       
+            :smf ->
+                # session management
+                ue_id = msg.header.ue
+                session_log = Map.get(state.nf_state, ue_id)
+                case sb_log do
+                    
+                end
+            end  
     
     end
 
@@ -249,18 +281,20 @@ defmodule Server do
 
             # Message from previous hop
             {^prev_hop, {msg, piggyback_logs, commit_vectors}} -> 
-
-            # Messages from clients
-            {sender, {msg, piggyback_logs, commit_vectors}} ->
                 # update replica
                 updated = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
                 # nf process logic and update primary state
-                state = nf_process(state, msg)
-                piggyback_logs = 
+                {state, update} = nf_process(state, msg)
+                piggyback_logs = List.delete(piggyback_logs, -1)
+                piggyback_logs = List.insert(piggyback_logs, 0, update)
                 # TODO: commit_vectors
                 # send to the next nf in the chain
                 send(next_hop, {msg, piggyback_logs, commit_vectors})
+
+            # Messages from clients
+            {sender, {msg, piggyback_logs, commit_vectors}} ->
+                
 
 
             # Messages for testing
