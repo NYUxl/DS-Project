@@ -166,17 +166,17 @@ defmodule Server do
     Update replica's states
     """
     @spec update_replica(map(any()), map(any())) :: map(any())
-    def update_replica(storage,  update) do
+    def update_replica(storage, update) do
         case update.action do
             "insert" -> 
-                updated_storage_i = storage.at(idx) 
-                loop_update_replica(storage, update, idx + 1)
+                Map.put(storage, update.key, update.value)
+                IO.puts("Insert a rule in replica")
             "delete" ->
-                loop_update_replica(storage, update, idx + 1)
-                
+                Map.delete(storage, update.key)
+                IO.puts("Delete a rule in replica")
             "modify" ->
-                loop_update_replica(storage, update, idx + 1)
-
+                %{storage | update.key: update.value}
+                IO.puts("Modify a rule in replica")
             _ ->
                 IO.puts("Not valid operation #{update.action} on storage state update")
         end
@@ -214,7 +214,11 @@ defmodule Server do
 
             # Messages from clients
             {sender, message} ->
-                if state is amf
+                case state.nf_name do
+                    :amf ->
+                        
+
+
 
 
             # Messages for testing
