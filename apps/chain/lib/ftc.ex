@@ -50,10 +50,10 @@ defmodule FTC do
                 %{} # key:UEid, value:location, registration_state(bool)
             :ausf ->
                 "AUSF state initialized"
-                %{1: {"Verizon", 0}} # key:UEid, value:{serving_network_name, status}
+                %{1: {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
             :smf ->
                 "SMF state initialized"
-                %{} # key:UEid, value:ip
+                %{"verizon": 100, "mint": 100, "at&t": 100} # entries: {key:UEid, value:ip}, extra_entries: {k: sub, v: max_ip} sub: "version", "mint", "at&t"
             :upf ->
                 "UPF state initialized"
                 %{} # key:src_ip, value:forwarding_port

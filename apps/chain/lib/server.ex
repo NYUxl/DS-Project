@@ -156,29 +156,39 @@ defmodule Server do
         reset_heartbeat_timer(state)
         nf_node(state, nil)
     end
+    
+    @doc """
+    Update replica's states
+    """
+    @spec update_one_entry(map(any()), map(any())) :: map(any())
+    def update_one_entry(storage, update) do
+        case update.action do
+            "insert" -> 
+                Map.put(storage, update.key, update.value)
+                IO.puts("Insert a rule in replica")
+            "delete" ->
+                Map.delete(storage, update.key)
+                IO.puts("Delete a rule in replica")
+            "modify" ->
+                %{storage | update.key: update.value}
+                IO.puts("Modify a rule in replica")
+            _ ->
+                IO.puts("Not valid operation #{update.action} on storage state update")
+        end
+    end
 
 
     @doc """
     Update replica's states
+    storage: nf replciate state
+    update: list of state update requests
     """
-    @spec update_replica(map(any()), map(any())) :: map(any())
-    def update_replica(storage, update) do
-        if update == nil do
+    @spec update_replica(map(any()), list(map(any()))) :: map(any())
+    def update_replica(storage, updates) do
+        if length(updates) == 0 do
             storage
         else
-            case update.action do
-                "insert" -> 
-                    Map.put(storage, update.key, update.value)
-                    IO.puts("Insert a rule in replica")
-                "delete" ->
-                    Map.delete(storage, update.key)
-                    IO.puts("Delete a rule in replica")
-                "modify" ->
-                    %{storage | update.key: update.value}
-                    IO.puts("Modify a rule in replica")
-                _ ->
-                    IO.puts("Not valid operation #{update.action} on storage state update")
-            end
+            storage = Enum.reduce(updates, storage, fn up, acc -> update_one_entry(acc, up) end)
         end
     end
 
@@ -209,31 +219,31 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(atom(), map(any()), non_neg_integer()) :: %Server{}
+    @spec nf_process(atom(), map(any()), non_neg_integer()) :: {%Server{}, %Message{}, list(%StateUpdate{})}
     def nf_process(state, msg)
         case state.nf_name do
             :amf ->
+                # check ue registration status
                 ue_id = msg.header.ue
                 reg_status_log = Map.get(state.nf_state, ue_id)
-                # check ue registration status
                 case reg_status_log do
                     nil ->
                         IO.puts("No record. Update to register.")
                         state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
-                        {state, %StateUpdate{action: "insert", key: ue_id, value: 1}}
+                        {state, msg, [%StateUpdate{action: "insert", key: ue_id, value: 1}]}
                         # TODO: send pkt
                     0 ->
                         IO.puts("Update de-registered to register.")
                         state = %{state | nf_state:Map.put(state.nf_state, ue_id, 1)}
-                        {state, %StateUpdate{action: "modify", key: ue_id, value: 1}}
+                        {state, msg, [%StateUpdate{action: "modify", key: ue_id, value: 1}]}
                         # TODO: send pkt
                     1 -> 
                         IO.puts("Already registered.")
-                        {state, nil}
+                        {state, msg, []}
                         # TODO: send pkt
                     _ ->
                         IO.puts("No #{ue_id} registration status.")
-                        {state, nil}
+                        {state, msg, []}
                         # TODO: send pkt
                 end
 
@@ -246,22 +256,77 @@ defmodule Server do
                     {subscriber, 0} ->
                         IO.puts("Successfully authenticate. Update authentication status.")
                         Map.put(state.nf_state, ue_id, {subscriber, 1})
-                        {state, %StateUpdate{action: "modify", key: ue_id, value: {}}}
+                        {state, msg, [%StateUpdate{action: "modify", key: ue_id, value: 1}]}
                     {subscriber, 1} ->
                         IO.puts("Successfully authenticate.")
-                        {state, nil}
+                        {state, msg, []}
                     _ ->
-                        IO.puts("Fail to authenticate.")
-                        {state, nil}
+                        IO.puts("No subscriber support. Fail to authenticate.")
+                        {state, msg, []}
                 end
                 
             :smf ->
                 # session management
                 ue_id = msg.header.ue
-                session_log = Map.get(state.nf_state, ue_id)
-                case sb_log do
-                    
+                subscriber = msg.header.sb
+                if Map.get(state.nf_state, ue_id) != nil do
+                    IO.puts("Already allocated an IP.")
+                    {state, msg, []}
+                else
+                    case subscriber do
+                        "verizon" ->
+                            IO.puts("IP allocate for verizion user equipment.")
+                            current_max_ip = Map.get(state.nf_state, subscriber)
+                            # update ip in msg header
+                            allocated_ip = "168.168.168." <> to_string(current_max_ip + 1)
+                            updated_hd = %{msg.header | src_ip: allocated_ip}
+                            msg = %{msg | header: updated_hd}
+                            # update nf_state
+                            updated_nf_state = Map.put(state.nf_state, ue_id, allocated_ip)
+                            updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
+                            state = %{state | nf_state: updated_nf_state}
+                            # return state_update
+                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
+                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            {state, msg, state_update_list}
+                        "mint" ->
+                            IO.puts("IP allocate for mint equipment.")
+                            current_max_ip = Map.get(state.nf_state, subscriber)
+                            # update ip in msg header
+                            allocated_ip = "168.178.178." <> to_string(current_max_ip + 1)
+                            updated_hd = %{msg.header | src_ip: allocated_ip}
+                            msg = %{msg | header: updated_hd}
+                            # update nf_state
+                            updated_nf_state = Map.put(state.nf_state, ue_id, allocated_ip)
+                            updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
+                            state = %{state | nf_state: updated_nf_state}
+                            # return state_update
+                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
+                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            {state, msg, state_update_list}
+                        "at&t" ->
+                            IO.puts("IP allocate for at&t equipment.")
+                            current_max_ip = Map.get(state.nf_state, subscriber)
+                            # update ip in msg header
+                            allocated_ip = "168.188.188." <> to_string(current_max_ip + 1)
+                            updated_hd = %{msg.header | src_ip: allocated_ip}
+                            msg = %{msg | header: updated_hd}
+                            # update nf_state
+                            updated_nf_state = Map.put(state.nf_state, ue_id, allocated_ip)
+                            updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
+                            state = %{state | nf_state: updated_nf_state}
+                            # return state_update
+                            state_update_list = [%StateUpdate{action: "modify", key: "subscriber", value: current_max_ip + 1}, 
+                                                %StateUpdate{action: "insert", key: ue_id, value: allocated_ip}]
+                            {state, msg, state_update_list} 
+                        _ ->
+                            IO.puts("No subscriber support. Fail to allocate IP.")
+                    end
+
                 end
+            :upf ->
+                # user plane to forward
+
         end  
     
     end
@@ -291,9 +356,10 @@ defmodule Server do
                 updated = loop_update_replica(state.replica_storage, piggyback_logs)
                 state = %{state | replica_storage: updated_storage}
                 # nf process logic and update primary state
-                {state, update} = nf_process(state, msg)
+                {state, msg, updates} = nf_process(state, msg)
+                # update piggyback
                 piggyback_logs = List.delete(piggyback_logs, -1)
-                piggyback_logs = List.insert(piggyback_logs, 0, update)
+                piggyback_logs = List.insert(piggyback_logs, 0, updates)
                 # TODO: commit_vectors
                 # send to the next nf in the chain
                 send(next_hop, {msg, piggyback_logs, commit_vectors})
