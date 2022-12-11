@@ -221,6 +221,7 @@ defmodule Server do
                                                             action: "insert",
                                                             key: msg.header.ue,
                                                             value: 1})
+                    Map.put(state.nf_state, ue_id, 1)
                 else
                     if 
                 end

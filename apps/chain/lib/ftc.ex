@@ -175,27 +175,104 @@ defmodule GNB do
     defstruct(
         id: nil,
         orchestrator: nil,
+        # the latest nonce to tag
+        nonce: nil,
+        # the next nonce to send, should be <= nonce
+        nonce_to_send: nil,
+        # if some message got no response for long time, we should return fail
+        expire_thres: nil,
         buffer: nil,
         current_dealer: nil
     )
 
-    @spec new_gNB(atom(), atom()) :: %GNB{}
-    def new_gNB(id, orchestrator) do
+    @spec new_gNB(atom(), atom(), non_neg_integer()) :: %GNB{}
+    def new_gNB(id, orchestrator, thres) do
         %GNB{
             id: id,
             orchestrator: orchestrator,
-            buffer: [],
-            current_dealer: nil
+            nonce: 0,
+            nonce_to_send: 0,
+            expire_thres: thres,
+            buffer: {},
+            current_head: nil
         }
+    end
+
+    @spec send_messages(%GNB{}) :: %GNB()
+    def send_messages(state) do
+        if state.nonce_to_send < state.nonce do
+            send(state.current_head, Map.get(state.buffer, state.nonce_to_send))
+            state = %{state | nonce_to_send: state.nonce_to_send + 1}
+            send_messages(state)
+        else
+            state
+        end
     end
 
     @spec gNB(%GNB{}) :: no_return()
     def gNB(state) do
         receive do
-            # new request from UE
+            # message from orchestrator for current chain head
+            {^state.orchestrator, {:current_head, dealer}} ->
+                state = %{state | current_head: dealer}
+                state = send_messages(state)
+                gNB(state)
 
             # need to ask for the chain entry
-            {}
+            {node, {:not_entry, nonce}} ->
+                send(state.orchestrator, :request_for_head)
+                state = %{state | current_head: :waiting, nonce_to_send: nonce}
+                gNB(state)
+            
+            # response from buffer
+            {node, {:done, nonce}} ->
+                # do nothing if the corresponding message is dropped earlier
+                if not Map.has_key?(state.buffer, nonce) do
+                    gNB(state)
+                end
+                
+                # retrieve the message
+                {req_sender, message} = Map.get(state.buffer, nonce)
+                send(req_sender, Server.MessageResponse.succ(message.header.ue, message.header.pid))
+
+                state = %{state | buffer: Map.pop(state.buffer, nonce)}
+                nonces = Enum.filter(Map.keys(state.buffer), fn x -> x < state.nonce - state.expire_thres end)
+                if Enum.empty?(nonces) do
+                    gNB(state)
+                else
+                    # reply fail to outdated messages
+                    Enum.map(nonces, fn x ->
+                        {req_sender, message} = Map.get(state.buffer, x)
+                        send(req_sender, Server.MessageResponse.fail(message.header.ue, message.header.pid))
+                    end)
+
+                    state = %{state | buffer: Map.drop(state.buffer, nonces)}
+                    gNB(state)
+                end
+
+            # new request from UE
+            {sender, message} ->
+                # tag the message with the current nonce
+                message = %{message | nonce: state.nonce}
+                state = %{state | buffer: Map.put(state.buffer, state.nonce, {sender, message})}
+                # update the nonce
+                state = %{state | nonce: state.nonce + 1}
+                
+                # for the first message, ask the orchestrator about the chain entry
+                case state.current_head do
+                    nil ->
+                        send(state.orchestrator, :request_for_head)
+                        state = %{state | current_head: :waiting}
+                        gNB(state)
+                    
+                    :waiting ->
+                        gNB(state)
+
+                    node ->
+                        send(node, message)
+                        state = %{state | nonce_to_send: state.nonce_to_send + 1}
+                        gNB(state)
+                end
         end
     end
 end

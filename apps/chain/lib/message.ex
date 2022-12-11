@@ -87,22 +87,13 @@ defmodule SomeName do
     )
 end
 
-defmodule SomeName do
-    @moduledoc """
-    
-    """
-    alias __MODULE__
-    defstruct(
-        default: nil
-    )
-end
-
-defmodule Server.Message do
+defmodule UE.Message do
     @moduledoc """
     Message architecture of the FTC, containing header and content
     """
     alias __MODULE__
     defstruct(
+        nonce: nil,
         header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil},
         payload: nil # payload 1500 bytes
     )
@@ -111,16 +102,38 @@ defmodule Server.Message do
     @spec new(non_neg_integer(), non_neg_integer(), string(), string(), string()) :: %Message{}
     def new(ue, pid, src, dst, pload) do
         %Message{
+            nonce: nil,
             header: %{ue: ue, pid: pid, src_ip: src, dst_ip: dst},
             payload: pload
         }
     end
+end
+
+defmodule Server.MessageResponse do
+    @moduledoc """
     
-    @spec update_piggyback(list()) :: %Message{}
-    def update_piggyback(packet, new_piggyback) do
-        %{packet | piggyback: new_piggyback}
+    """
+    alias __MODULE__
+    defstruct(
+        header: %{ue: ue, pid: pid},
+        response: nil
+    )
+
+    @spec succ(non_neg_integer(), non_neg_integer()) :: %MessageResponse{}
+    def succ(ue, pid) do
+        %MessageResponse{
+            header: %{ue: ue, pid: pid},
+            response: :succ
+        }
     end
 
+    @spec fail(non_neg_integer(), non_neg_integer()) :: %MessageResponse{}
+    def fail(ue, pid) do
+        %MessageResponse{
+            header: %{ue: ue, pid: pid},
+            response: :fail
+        }
+    end
 end
 
 defmodule NF.StateUpdate do
