@@ -285,6 +285,8 @@ defmodule FTC do
                 state = fix_nodes(state, dead_nodes)
                 # to resume the whole process
                 Enum.map(alive_nodes, fn x -> send(x, :resume) end)
+                state = reset_live_timer(state)
+                orchestrator(state, reset_extra_state())
         end
     end
 end

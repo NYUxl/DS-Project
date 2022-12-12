@@ -68,7 +68,7 @@ defmodule Server.StateResponse do
         state: nil
     )
 
-    @spec new(any()) :: %StateResponse{}
+    @spec new(atom(), any()) :: %StateResponse{}
     def new(id, replicas) do
         %StateResponse{
             id: id,
