@@ -1,6 +1,6 @@
 defmodule FTCTest do
     use ExUnit.Case
-    doctest FTCImplementation
+    doctest FTC
 
     import Kernel,
         except: [spawn: 3, spawn: 1, spawn_link: 1, spawn_link: 3, send: 2]
