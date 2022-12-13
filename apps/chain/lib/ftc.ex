@@ -97,7 +97,7 @@ defmodule FTC do
         # send messages to the first and the last node
         send(
             Enum.at(state.nodes, 0),
-            Server.NewInstance.new(
+            FTC.NewInstance.new(
                 Enum.at(state.nf_chain, 0),
                 Enum.at(state.nodes, len - 1),
                 Enum.at(state.nodes, 1),
@@ -111,7 +111,7 @@ defmodule FTC do
 
         send(
             Enum.at(state.nodes, len - 1),
-            Server.NewInstance.new(
+            FTC.NewInstance.new(
                 Enum.at(state.nf_chain, len - 1),
                 Enum.at(state.nodes, len - 2),
                 Enum.at(state.nodes, 0),
@@ -128,7 +128,7 @@ defmodule FTC do
             fn idx -> 
                 send(
                     Enum.at(state.nodes, idx),
-                    Server.NewInstance.new(
+                    FTC.NewInstance.new(
                         Enum.at(state.nf_chain, idx),
                         Enum.at(state.nodes, idx - 1),
                         Enum.at(state.nodes, idx + 1),
@@ -168,7 +168,7 @@ defmodule FTC do
     @spec wait_for_state_response(atom()) :: any()
     def wait_for_state_response(node) do
         receive do
-            {^node, %Server.StateResponse{id: ^node, state: replica}} ->
+            {^node, %FTC.StateResponse{id: ^node, state: replica}} ->
                 replica
             
             _ ->
@@ -226,7 +226,7 @@ defmodule FTC do
 
             send(
                 Enum.at(new_nodes, chain_idx),
-                Server.NewInstance.new(
+                FTC.NewInstance.new(
                     Enum.at(state.nf_chain, chain_idx),
                     Enum.at(new_nodes, rem(chain_idx + len - 1, len)),
                     Enum.at(new_nodes, rem(chain_idx + 1, len)),
@@ -293,7 +293,7 @@ defmodule FTC do
                     chain_idx = Enum.find_index(state.nodes, fn n -> n == x end)
                     send(
                         x,
-                        Server.ChainUpdate.new(
+                        FTC.ChainUpdate.new(
                             Enum.at(state.nodes, rem(chain_idx + len - 1, len)),
                             Enum.at(state.nodes, rem(chain_idx + 1, len))
                         )
@@ -311,11 +311,13 @@ defmodule FTC do
     end
 end
 
-defmodule GNB do
+defmodule FTC.GNB do
     @moduledoc """
     gNB for 5G infrastructure. Forward the message to the forwarder to enter
     the chain
     """
+    alias __MODULE__
+
     import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
 
     import Kernel,
@@ -404,7 +406,7 @@ defmodule GNB do
 
                 # retrieve the message
                 {req_sender, message} = Map.get(state.buffer, nonce)
-                send(req_sender, Server.MessageResponse.succ(message.header.ue, message.header.pid, updated_header))
+                send(req_sender, FTC.MessageResponse.succ(message.header.ue, message.header.pid, updated_header))
 
                 state = %{state | buffer: Map.pop(state.buffer, nonce)}
                 nonces = Enum.filter(Map.keys(state.buffer), fn x -> x < state.nonce - state.expire_thres end)
@@ -452,10 +454,12 @@ defmodule GNB do
     end
 end
 
-defmodule UE do
+defmodule FTC.UE do
     @moduledoc """
     User equipment. Send message to the assigned gNB
     """
+    alias __MODULE__
+    
     import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
 
     import Kernel,

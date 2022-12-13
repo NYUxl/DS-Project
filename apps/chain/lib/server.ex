@@ -1,8 +1,9 @@
-defmodule Server do
+defmodule FTC.Server do
     @moduledoc """
     A general implementation of a server. Could contain network
     function and replicas (for other NFs), and forwarder and buffer.
     """
+    alias __MODULE__
 
     # Shouldn't need to spawn anything from this module
     import Emulation, only: [send: 2, timer: 1, timer: 2, now: 0, whoami: 0]
@@ -114,7 +115,7 @@ defmodule Server do
         receive do
             # Control message from orchestrator
             {^orch,
-             %Server.NewInstance{
+             %FTC.NewInstance{
                 nf_name: nf,
                 prev_hop: prev_hop,
                 next_hop: next_hop,
@@ -225,7 +226,7 @@ defmodule Server do
     1: registered
     0: de-registered
     """
-    @spec nf_process(%Server{}, %Message{}) :: {%Server{}, %Message{}, list(%NF.StateUpdate{})}
+    @spec nf_process(%Server{}, %FTC.Message{}) :: {%Server{}, %FTC.Message{}, list(%FTC.StateUpdate{})}
     def nf_process(state, msg) do
         case state.nf_name do
             :amf ->
@@ -236,12 +237,12 @@ defmodule Server do
                     nil ->
                         IO.puts("No record. Update to register.")
                         state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
-                        {state, msg, [NF.StateUpdate.new("insert", ue_id, 1)]}
+                        {state, msg, [FTC.StateUpdate.new("insert", ue_id, 1)]}
                         
                     0 ->
                         IO.puts("Update de-registered to register.")
                         state = %{state | nf_state: Map.put(state.nf_state, ue_id, 1)}
-                        {state, msg, [NF.StateUpdate.new("modify", ue_id, 1)]}
+                        {state, msg, [FTC.StateUpdate.new("modify", ue_id, 1)]}
                         
                     1 -> 
                         IO.puts("Already registered.")
@@ -261,7 +262,7 @@ defmodule Server do
                     {subscriber, 0} ->
                         IO.puts("Successfully authenticate. Update authentication status.")
                         Map.put(state.nf_state, ue_id, {subscriber, 1})
-                        {state, msg, [NF.StateUpdate.new("modify", ue_id, 1)]}
+                        {state, msg, [FTC.StateUpdate.new("modify", ue_id, 1)]}
 
                     {subscriber, 1} ->
                         IO.puts("Successfully authenticate.")
@@ -295,8 +296,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
-                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
+                            state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list}
 
                         "mint" ->
@@ -311,8 +312,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
-                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
+                            state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list}
 
                         "at&t" ->
@@ -327,8 +328,8 @@ defmodule Server do
                             updated_nf_state = Map.put(updated_nf_state, subscriber, current_max_ip + 1)
                             state = %{state | nf_state: updated_nf_state}
                             # return state_update
-                            state_update_list = [NF.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
-                                                NF.StateUpdate.new("insert", ue_id, allocated_ip)]
+                            state_update_list = [FTC.StateUpdate.new("modify", "subscriber", current_max_ip + 1), 
+                                                FTC.StateUpdate.new("insert", ue_id, allocated_ip)]
                             {state, msg, state_update_list} 
 
                         _ ->
@@ -344,10 +345,10 @@ defmodule Server do
                 cnt = Map.get(state.nf_state, ue_id)
                 if cnt == nil do
                     updated_nf_state = Map.put(state.nf_state, src_ip, 1)
-                    {state, msg, [NF.StateUpdate.new("insert", src_ip, 1)]}
+                    {state, msg, [FTC.StateUpdate.new("insert", src_ip, 1)]}
                 else
                     updated_nf_state = Map.put(state.nf_state, src_ip, cnt + 1)
-                    {state, msg, [NF.StateUpdate.new("modify", src_ip, cnt + 1)]}
+                    {state, msg, [FTC.StateUpdate.new("modify", src_ip, cnt + 1)]}
                 end
         end  
     
@@ -390,7 +391,7 @@ defmodule Server do
                 if Enum.empty?(state.forwarder) do
                     nf_node(state, extra_state)
                 else
-                    {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop(state.forwarder, 0)
+                    {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0)
                     state = %{state | forwarder: new_forwarder}
 
                     piggyback_logs = List.insert_at(piggyback_logs, 0, {nil, []})
@@ -457,7 +458,7 @@ defmodule Server do
                 else
                     # this is the first nf node
                     default = {[], Map.new([{state.rep_group, 0}])}
-                    {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop(state.forwarder, 0, default)
+                    {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0, default)
                     state = %{state | forwarder: new_forwarder}
                     state = reset_nop_timer(state)
                     
@@ -493,14 +494,14 @@ defmodule Server do
             {^orch, :get_state} ->
                 send(
                     orch,
-                    Server.StateResponse.new(
+                    FTC.StateResponse.new(
                         state.id,
                         state.replica_storage
                     )
                 )
                 paused_node(state, extra_state)
             
-            {^orch, %Server.ChainUpdate{
+            {^orch, %FTC.ChainUpdate{
                 prev_hop: prev_hop,
                 next_hop: next_hop
              }} ->
@@ -603,7 +604,7 @@ defmodule Server do
                     else
                         # this is the first nf node
                         default = {[], Map.new([{state.rep_group, 0}])}
-                        {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop(state.forwarder, 0, default)
+                        {{piggyback_logs, commit_vectors}, new_forwarder} = List.pop_at(state.forwarder, 0, default)
                         state = %{state | forwarder: new_forwarder}
                         state = reset_nop_timer(state)
                         

@@ -1,5 +1,5 @@
 defmodule FCT.MixProject do
-  use Mix.Project
+ use Mix.Project
 
   def project do
     [

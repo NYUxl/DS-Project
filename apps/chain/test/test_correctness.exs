@@ -10,8 +10,8 @@ defmodule FTCTest do
     @spec spawn_server(atom()) :: no_return()
     def spawn_server(node) do
         spawn(node, fn -> 
-            Server.become_server(
-                Server.new_configuration(
+            FTC.Server.become_server(
+                FTC.Server.new_configuration(
                     :orch,
                     10_000,
                     1000
@@ -38,10 +38,10 @@ defmodule FTCTest do
         e = spawn_server(:e)
 
         orch = spawn(:orch, fn -> FTC.start(base_config) end)
-        gnb = spawn(:gnb, fn -> GNB.startup(GNB.new_gNB(:orch, 20)) end)
+        gnb = spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
 
         client = spawn(:client, fn ->
-            client = UE.new_client(:client, :gnb)
+            client = FTC.UE.new_client(:client, :gnb)
 
             receive do
             after

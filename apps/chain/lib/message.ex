@@ -1,4 +1,4 @@
-defmodule Server.NewInstance do
+defmodule FTC.NewInstance do
     @moduledoc """
     Used when the orchestrator wants to turn a server into some NF
     """
@@ -57,7 +57,7 @@ defmodule Server.NewInstance do
     end
 end
 
-defmodule Server.StateResponse do
+defmodule FTC.StateResponse do
     @moduledoc """
     When some node fails, orchestrator need to temporaliy pause
     all the nodes, and collect states to reinstall the failed node
@@ -77,7 +77,7 @@ defmodule Server.StateResponse do
     end
 end
 
-defmodule Server.ChainUpdate do
+defmodule FTC.ChainUpdate do
     @moduledoc """
     The orchestrator use this to tell the node about its new prev_hop
     and next_hop
@@ -97,7 +97,7 @@ defmodule Server.ChainUpdate do
     end
 end
 
-defmodule Message do
+defmodule FTC.Message do
     @moduledoc """
     Message architecture of the FTC, containing header and content
     """
@@ -123,7 +123,7 @@ defmodule Message do
     end
 end
 
-defmodule Server.MessageResponse do
+defmodule FTC.MessageResponse do
     @moduledoc """
     Response for a message from the buffer to the gNB
     """
@@ -150,7 +150,7 @@ defmodule Server.MessageResponse do
     end
 end
 
-defmodule NF.StateUpdate do
+defmodule FTC.StateUpdate do
     @moduledoc """
     The state update message piggybacked to the transmitted message
     """
