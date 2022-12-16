@@ -263,7 +263,7 @@ defmodule FTC.Server do
             :ausf ->
                 # check ue authentication
                 ue_id = msg.header.ue
-                subscriber = msg.header.sb
+                subscriber = msg.header.sub
                 sb_log = Map.get(state.nf_state, ue_id)
                 case sb_log do
                     {subscriber, 0} ->
@@ -283,7 +283,7 @@ defmodule FTC.Server do
             :smf ->
                 # session management
                 ue_id = msg.header.ue
-                subscriber = msg.header.sb
+                subscriber = msg.header.sub
                 ex_src_ip = Map.get(state.nf_state, ue_id)
                 if ex_src_ip != nil do
                     IO.puts("Already allocated an IP.")
