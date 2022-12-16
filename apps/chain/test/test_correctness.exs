@@ -154,7 +154,7 @@ defmodule FTCTest do
 
     @spec spawn_ue(atom(), string()) :: no_return()
     def spawn_ue(a, sub) do
-
+        
     end
 
     test "NF functions correctly" do
