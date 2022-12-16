@@ -152,9 +152,21 @@ defmodule FTCTest do
         Emulation.terminate()
     end
 
-    @spec spawn_ue(atom(), string()) :: no_return()
-    def spawn_ue(a, sub) do
-        
+    @spec spawn_ue(atom(), atom(), string()) :: no_return()
+    def spawn_ue(a, gnb, sub) do
+        spawn(a, fn ->
+            FTC.UE.ue(
+                FTC.UE.new_ue(
+                    a,
+                    gnb,
+                    sub
+                )
+            )
+        end)
+    end
+
+    @spec spawn_ues(list(atom()), atom(), list(string())) :: no_return()
+    def spawn_ues(ues, gnb, subs) do
     end
 
     test "NF functions correctly" do

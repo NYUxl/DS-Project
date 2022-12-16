@@ -496,8 +496,7 @@ defmodule FTC.UE do
             id: id,
             gnb: gnb,
             sub: sub,
-            ip: nil,
-            pid: 0
+            ip: nil
         }
     end
 
