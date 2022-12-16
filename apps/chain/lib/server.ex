@@ -141,7 +141,7 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(server): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(server): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 server(state)
             
@@ -389,12 +389,12 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 nf_node(state, extra_state)
             
             {sender, :master_terminate} ->
-                IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_terminate received, turn to server")
+                # IO.puts("#{whoami()}(nf_node, #{state.nf_name}): master_terminate received, turn to server")
                 become_server(state)
 
             # Heartbeat timer, send a heartbeat to the orchestrator
@@ -431,9 +431,13 @@ defmodule FTC.Server do
                 piggyback_logs = List.delete_at(piggyback_logs, -1)
                 piggyback_logs = List.insert_at(piggyback_logs, 0, {nil, []})
 
-                
-                send(state.next_hop, {:empty, piggyback_logs, commit_vectors})
-                nf_node(state, extra_state)
+                if state.is_last do # put message in the buffer and send to the forwarder
+                    state = buffer_response(state, commit_vectors)
+                    nf_node(state, extra_state)
+                else # send to the next nf in the chain
+                    send(state.next_hop, {:empty, piggyback_logs, commit_vectors})
+                    nf_node(state, extra_state)
+                end
 
             {^p_hop, {:from_buffer, piggyback_logs, commit_vectors}} ->
                 # update replica
@@ -471,8 +475,12 @@ defmodule FTC.Server do
                     send(state.next_hop, {msg, piggyback_logs, commit_vectors})
                     nf_node(state, extra_state)
                 end
+            
+            # Not entry messages to be ignored
+            {sender, {:not_entry, _}} ->
+                nf_node(state, extra_state)
 
-            # Messages from clients
+            # Messages from ues
             {sender, msg} ->
                 if not state.is_first do
                     IO.puts("#{whoami()}(nf_node, #{state.nf_name}): msg received from #{sender}, not entry; prev_hop: #{state.prev_hop}")
@@ -536,12 +544,12 @@ defmodule FTC.Server do
 
             # Messages for testing
             {sender, {:master_get, key}} ->
-                IO.puts("#{whoami()}(paused_node): master_get received, return #{key}")
+                # IO.puts("#{whoami()}(paused_node): master_get received, return #{key}")
                 send(sender, Map.get(state, key))
                 paused_node(state, extra_state)
             
             {sender, {:master_get_extra, key}} ->
-                IO.puts("#{whoami()}(paused_node): master_get_extra received, return #{key}")
+                # IO.puts("#{whoami()}(paused_node): master_get_extra received, return #{key}")
                 send(sender, Map.get(extra_state, key))
                 paused_node(state, extra_state)
 
@@ -554,6 +562,10 @@ defmodule FTC.Server do
             # Nop timer, in paused mode, just ignore it and reset
             :timer_nop ->
                 state = reset_nop_timer(state)
+                paused_node(state, extra_state)
+
+            # Not entry messages to be ignored
+            {sender, {:not_entry, _}} ->
                 paused_node(state, extra_state)
 
             # Messages need to be stored
