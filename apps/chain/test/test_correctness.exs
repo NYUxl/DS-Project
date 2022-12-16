@@ -239,7 +239,7 @@ defmodule FTCTest do
             assert (cnt_false == 1)
         end)
 
-        handle = Process.monitor(client)
+        handle = Process.monitor(master)
         # Timeout.
         receive do
             {:DOWN, ^handle, _, _, _} -> true
