@@ -173,15 +173,15 @@ defmodule FTC.Server do
     def update_one_entry(storage, update) do
         case update.action do
             "insert" -> 
-                IO.puts("Insert a rule in replica")
+                IO.puts("Insert a rule in replica: #{update.key}, #{update.value}")
                 Map.put_new(storage, update.key, update.value)
 
             "delete" ->
-                IO.puts("Delete a rule in replica")
+                IO.puts("Delete a rule in replica: #{update.key}, #{update.value}")
                 Map.delete(storage, update.key)
             
             "modify" ->
-                IO.puts("Modify a rule in replica")
+                IO.puts("Modify a rule in replica: #{update.key}, #{update.value}")
                 Map.put(storage, update.key, update.value)
     
             _ ->

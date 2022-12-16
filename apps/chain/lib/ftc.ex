@@ -51,7 +51,7 @@ defmodule FTC do
             
             :ausf ->
                 # "AUSF state initialized"
-                %{1 => {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
+                %{:u1 => {"verizon", 0}} # key:UEid, value:{serving_network_name, status}
             
             :smf ->
                 # "SMF state initialized"
