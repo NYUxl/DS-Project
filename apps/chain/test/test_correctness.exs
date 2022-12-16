@@ -197,7 +197,7 @@ defmodule FTCTest do
 
         spawn(:orch, fn -> FTC.start(base_config) end)
         spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
-
+        
         spawn_ues(ues, :gnb, subs)
 
         master = spawn(:master, fn ->
