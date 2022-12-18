@@ -189,8 +189,8 @@ defmodule FTCTest do
         
         view = [:a, :b, :c, :d, :e]
         chain = [:amf, :ausf, :smf, :upf]
-        ues = [:u1]
-        subs = ["verizon"]
+        ues = [:u1, :u2]
+        subs = ["verizon", "veri"]
 
         base_config = FTC.new_configuration(
             view,
@@ -237,6 +237,13 @@ defmodule FTCTest do
             end))
             cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
             assert (cnt_false == 1)
+
+            # u1 will get ip and u2 will not get ip
+            functions = Enum.map(ues, fn x ->
+                {x, (get_from_node(x, :ip) == nil)}
+            end)
+            gt = %{u1: false, u2: true}
+            assert (Map.equal?(Map.new(functions), gt))
         end)
 
         handle = Process.monitor(master)
@@ -250,6 +257,7 @@ defmodule FTCTest do
         Emulation.terminate()
     end
     
+
     test "Recovery works without traffic" do
         Emulation.init()
         Emulation.append_fuzzers([Fuzzers.delay(2)])
@@ -278,6 +286,7 @@ defmodule FTCTest do
         spawn_ues(ues, :gnb, subs)
 
         master = spawn(:master, fn ->
+            Enum.map(ues, fn x -> send(x, :master_send_req) end)
             receive do
             after
             1_000 -> true
@@ -314,4 +323,86 @@ defmodule FTCTest do
     after
         Emulation.terminate()
     end
+
+
+    test "NF logic functions correctly without failure" do
+        Emulation.init()
+        Emulation.append_fuzzers([Fuzzers.delay(2)])
+        
+        view = [:a, :b, :c, :d, :e]
+        chain = [:amf, :ausf, :smf, :upf]
+        ues = [:u1, :u2]
+        subs = ["verizon", "veri"]
+
+        base_config = FTC.new_configuration(
+            view,
+            chain,
+            3,
+            3000
+        )
+
+        spawn_server(:a)
+        spawn_server(:b)
+        spawn_server(:c)
+        spawn_server(:d)
+        spawn_server(:e)
+
+        spawn(:orch, fn -> FTC.start(base_config) end)
+        spawn(:gnb, fn -> FTC.GNB.startup(FTC.GNB.new_gNB(:orch, 20)) end)
+        
+        spawn_ues(ues, :gnb, subs)
+
+        master = spawn(:master, fn ->
+            Enum.map(ues, fn x -> send(x, :master_send_req) end)
+
+            receive do
+            after
+            1_000 -> true
+            end
+
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
+
+            assigned = get_assigned(:orch)
+
+            receive do
+            after
+            10_000 -> true
+            end
+            
+            in_use = Map.new(Enum.map(view, fn x ->
+                {x, get_from_node(x, :in_use)}
+            end))
+            cnt_false = Enum.count(Map.values(in_use), fn x -> x == false end)
+            assert (cnt_false == 1)
+            
+            # nf has right state information
+            assert(get_from_node(Enum.at(assigned, 0), :nf_state) == %{u1: 1, u2: 1})
+            assert(get_from_node(Enum.at(assigned, 1), :nf_state) == %{u1: {"verizon", 1}})
+            assert(get_from_node(Enum.at(assigned, 2), :nf_state) == %{"verizon" => 101, "at&t" => 100, "mint" => 100, :u1 => "168.168.168.101"})
+            assert(get_from_node(Enum.at(assigned, 3), :nf_state) == %{"168.168.168.101" => 1})
+
+
+            # u1 will get ip and u2 will not get ip
+            functions = Enum.map(ues, fn x ->
+                {x, (get_from_node(x, :ip) == nil)}
+            end)
+            gt = %{u1: false, u2: true}
+            assert (Map.equal?(Map.new(functions), gt))
+        end)
+
+        handle = Process.monitor(master)
+        # Timeout.
+        receive do
+            {:DOWN, ^handle, _, _, _} -> true
+        after
+        30_000 -> assert false
+        end
+    after
+        Emulation.terminate()
+    end
+
 end

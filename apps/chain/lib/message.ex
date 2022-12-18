@@ -107,7 +107,7 @@ defmodule FTC.Message do
         gnb: nil,
         nonce: nil,
         # content sent by UE
-        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil, sub: nil},
+        header: %{ue: nil, pid: nil, src_ip: nil, dst_ip: nil, sub: nil, fail_bit: nil},
         payload: nil # payload 1500 bytes
     )
 
@@ -117,7 +117,7 @@ defmodule FTC.Message do
         %Message{
             gnb: nil,
             nonce: nil,
-            header: %{pid: pid, ue: ue, src_ip: src, dst_ip: dst, sub: sb},
+            header: %{pid: pid, ue: ue, src_ip: src, dst_ip: dst, sub: sb, fail_bit: 0},
             payload: pload
         }
     end
