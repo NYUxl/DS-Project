@@ -403,10 +403,6 @@ defmodule FTC.GNB do
         receive do
             # message from orchestrator for current chain head
             {^orch, {:current_head, dealer}} ->
-<<<<<<< HEAD
-=======
-                # IO.puts("GNB: current_head (#{dealer}) received")
->>>>>>> f56e966c7237aee72fcfdade283520c792f1a42d
                 if(state.wait_timer != nil, do: Emulation.cancel_timer(state.wait_timer))
                 state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
