@@ -221,11 +221,8 @@ defmodule FTC do
             # pull some state if needed
             storages = update_storages(storages, prev_node, next_node)
             # reconstruct the replica state
-            p_diff = rem(chain_idx + len - prev_idx, len)
-            n_diff = rem(next_idx + len - chain_idx, len)
-            reconstructed_replica_1 = Enum.take(Map.get(storages, next_node), p_diff + 1)
-            reconstructed_replica_1 = Enum.drop(reconstructed_replica_1, 1)
-            reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), state.num_of_replications - p_diff)
+            reconstructed_replica_1 = Enum.drop(Map.get(storages, next_node), rem(next_idx + len - chain_idx, len))
+            reconstructed_replica_2 = Enum.take(Map.get(storages, prev_node), rem(chain_idx + len - prev_idx, len))
             reconstructed_replica = reconstructed_replica_1 ++ reconstructed_replica_2
 
             send(
@@ -238,7 +235,7 @@ defmodule FTC do
                     reconstructed_replica,
                     Enum.at(state.nf_chain, len - state.num_of_replications),
                     if(chain_idx == 0, do: true, else: false),
-                    if(chain_idx == (length(state.nodes) - 1), do: true, else: false)
+                    if(chain_idx == (length(state.nodes) - 1), do: false, else: true)
                 )
             )
 
@@ -401,7 +398,6 @@ defmodule FTC.GNB do
         receive do
             # message from orchestrator for current chain head
             {^orch, {:current_head, dealer}} ->
-                IO.puts("GNB: current_head (#{dealer}) received")
                 if(state.wait_timer != nil, do: Emulation.cancel_timer(state.wait_timer))
                 state = %{state | wait_timer: nil, current_head: dealer}
                 state = send_messages(state)
@@ -471,7 +467,6 @@ defmodule FTC.GNB do
             
             # nonce sent back by timer
             nonce ->
-                IO.puts("GNB: timer (#{nonce}) received, resend")
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
                 end
@@ -482,7 +477,6 @@ defmodule FTC.GNB do
                 state = %{state | buffer: Map.delete(state.buffer, nonce)}
                 state = %{state | buffer: Map.put(state.buffer, state.nonce, {req_sender, message})}
                 state = %{state | nonce: state.nonce + 1}
-                state = %{state | nonce_to_send: Enum.min(Map.keys(state.buffer))}
             
                 case state.current_head do
                     nil ->
