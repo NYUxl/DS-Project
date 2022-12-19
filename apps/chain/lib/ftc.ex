@@ -479,10 +479,6 @@ defmodule FTC.GNB do
             
             # nonce sent back by timer
             nonce ->
-<<<<<<< HEAD
-=======
-                # IO.puts("GNB: timer (#{nonce}) received, resend")
->>>>>>> f56e966c7237aee72fcfdade283520c792f1a42d
                 if not Map.has_key?(state.buffer, nonce) do
                     gNB(state)
                 end
